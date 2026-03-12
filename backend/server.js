@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const session = require('express-session');
 const cors = require('cors');
@@ -54,9 +55,25 @@ app.use('/api/reports', reportRoutes);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not Found' }));
 
-const frontendPath = path.join(__dirname, '..', 'frontend');
-app.use(express.static(frontendPath));
-app.get('/', (req, res) => res.sendFile(path.join(frontendPath, 'index.html')));
+const frontendRoot = path.join(__dirname, '..', 'frontend');
+const frontendDistPath = path.join(frontendRoot, 'dist');
+const distIndex = path.join(frontendDistPath, 'index.html');
+const legacyIndex = path.join(frontendRoot, 'index.legacy.html');
+
+if (fs.existsSync(distIndex)) {
+  app.use(express.static(frontendDistPath));
+  app.get('/', (req, res) => res.sendFile(distIndex));
+} else if (fs.existsSync(legacyIndex)) {
+  app.use('/assets', express.static(path.join(frontendRoot, 'assets')));
+  app.use('/pages', express.static(path.join(frontendRoot, 'pages')));
+  app.get('/', (req, res) => res.sendFile(legacyIndex));
+} else {
+  app.get('/', (req, res) =>
+    res
+      .status(200)
+      .send('Frontend not built yet. Run "npm install" and "npm run build" in /frontend.')
+  );
+}
 
 app.use((err, req, res, next) => {
   console.error(err);
