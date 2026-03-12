@@ -1,0 +1,149 @@
+const Teacher = require('../models/Teacher');
+
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function parseNullablePositiveInt(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const num = Number(value);
+  if (!Number.isInteger(num) || num <= 0) return null;
+  return num;
+}
+
+function parsePositiveInt(value) {
+  const num = Number(value);
+  if (!Number.isInteger(num) || num <= 0) return null;
+  return num;
+}
+
+function isAllowedRole(value) {
+  return ['Homeroom Teacher', 'Subject Teacher'].includes(value);
+}
+
+async function getAllTeachers(req, res, next) {
+  try {
+    const teachers = await Teacher.list();
+    return res.json(teachers);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+async function createTeacher(req, res, next) {
+  try {
+    const { teacher_name, department_id, assigned_class, role } = req.body ?? {};
+
+    if (!isNonEmptyString(teacher_name)) {
+      return res.status(400).json({ error: 'Teacher_Name is required' });
+    }
+    if (!isAllowedRole(role)) {
+      return res
+        .status(400)
+        .json({ error: 'Role must be Homeroom Teacher or Subject Teacher' });
+    }
+
+    const deptId = parseNullablePositiveInt(department_id);
+    const assignedClass = isNonEmptyString(assigned_class) ? assigned_class.trim() : null;
+
+    if (role === 'Homeroom Teacher' && !assignedClass) {
+      return res
+        .status(400)
+        .json({ error: 'Assigned_Class is required for Homeroom Teacher' });
+    }
+
+    if (role === 'Homeroom Teacher' && assignedClass) {
+      const conflict = await Teacher.findHomeroomConflict({ assigned_class: assignedClass });
+      if (conflict) {
+        return res.status(409).json({
+          error: `Homeroom teacher already assigned for class "${assignedClass}"`
+        });
+      }
+    }
+
+    const teacherId = await Teacher.create({
+      teacher_name: teacher_name.trim(),
+      department_id: deptId,
+      assigned_class: assignedClass,
+      role
+    });
+
+    const teacher = await Teacher.getById(teacherId);
+    return res.status(201).json(teacher);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+async function updateTeacher(req, res, next) {
+  try {
+    const teacherId = parsePositiveInt(req.params.id);
+    if (!teacherId) return res.status(400).json({ error: 'Invalid teacher id' });
+
+    const { teacher_name, department_id, assigned_class, role } = req.body ?? {};
+
+    if (!isNonEmptyString(teacher_name)) {
+      return res.status(400).json({ error: 'Teacher_Name is required' });
+    }
+    if (!isAllowedRole(role)) {
+      return res
+        .status(400)
+        .json({ error: 'Role must be Homeroom Teacher or Subject Teacher' });
+    }
+
+    const deptId = parseNullablePositiveInt(department_id);
+    const assignedClass = isNonEmptyString(assigned_class) ? assigned_class.trim() : null;
+
+    if (role === 'Homeroom Teacher' && !assignedClass) {
+      return res
+        .status(400)
+        .json({ error: 'Assigned_Class is required for Homeroom Teacher' });
+    }
+
+    if (role === 'Homeroom Teacher' && assignedClass) {
+      const conflict = await Teacher.findHomeroomConflict({
+        assigned_class: assignedClass,
+        teacher_id: teacherId
+      });
+      if (conflict) {
+        return res.status(409).json({
+          error: `Homeroom teacher already assigned for class "${assignedClass}"`
+        });
+      }
+    }
+
+    const affected = await Teacher.update(teacherId, {
+      teacher_name: teacher_name.trim(),
+      department_id: deptId,
+      assigned_class: assignedClass,
+      role
+    });
+
+    if (!affected) return res.status(404).json({ error: 'Teacher not found' });
+    const teacher = await Teacher.getById(teacherId);
+    return res.json(teacher);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+async function deleteTeacher(req, res, next) {
+  try {
+    const teacherId = parsePositiveInt(req.params.id);
+    if (!teacherId) return res.status(400).json({ error: 'Invalid teacher id' });
+
+    const affected = await Teacher.remove(teacherId);
+    if (!affected) return res.status(404).json({ error: 'Teacher not found' });
+
+    return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
+}
+
+module.exports = {
+  getAllTeachers,
+  createTeacher,
+  updateTeacher,
+  deleteTeacher
+};

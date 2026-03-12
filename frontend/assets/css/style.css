@@ -1,0 +1,429 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap');
+
+:root {
+  --sam-bg: #e9edf3;
+  --sam-bg-deep: #d8e1ec;
+  --sam-surface: #ffffff;
+  --sam-border: #c8d3e0;
+  --sam-ink: #152030;
+  --sam-muted: #5a6a7f;
+  --sam-accent: #3e86c4;
+  --sam-accent-strong: #2d6fa8;
+  --sam-header-cell: #c9d4e4;
+  --sam-row-cell: #e5ebf3;
+  --sam-pass: #06ab57;
+  --sam-fail: #ca2323;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Barlow', sans-serif;
+  background:
+    radial-gradient(circle at 10% 0%, #ffffff 0%, rgba(255, 255, 255, 0) 35%),
+    radial-gradient(circle at 90% 0%, #d8e9fa 0%, rgba(216, 233, 250, 0) 30%),
+    linear-gradient(180deg, var(--sam-bg) 0%, var(--sam-bg-deep) 100%);
+  color: var(--sam-ink);
+  min-height: 100vh;
+}
+
+.sam-navbar,
+.navbar.navbar-dark.bg-dark {
+  background: linear-gradient(120deg, #1f2f43, #2f4e6e);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 24px rgba(9, 22, 38, 0.28);
+}
+
+.sam-navbar .nav-link,
+.navbar.navbar-dark.bg-dark .nav-link {
+  color: rgba(233, 241, 251, 0.78);
+  border-radius: 999px;
+  padding: 0.34rem 0.82rem;
+  transition: 180ms ease;
+}
+
+.sam-navbar .nav-link:hover,
+.sam-navbar .nav-link.active,
+.navbar.navbar-dark.bg-dark .nav-link:hover,
+.navbar.navbar-dark.bg-dark .nav-link.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.sam-brand,
+.navbar.navbar-dark.bg-dark .navbar-brand {
+  font-family: 'Rajdhani', sans-serif;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.sam-brand:hover {
+  color: #fff;
+}
+
+.sam-brand-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.3rem;
+  height: 1.7rem;
+  padding: 0 0.5rem;
+  border-radius: 0.45rem;
+  background: linear-gradient(135deg, #66b3ff, #3e86c4);
+  color: #f4f9ff;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.sam-admin-pill {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #e7f1ff;
+  border-radius: 999px;
+  padding: 0.22rem 0.72rem;
+}
+
+.card {
+  border: 1px solid var(--sam-border);
+  border-radius: 0.95rem;
+  overflow: hidden;
+}
+
+.card-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.table td,
+.table th {
+  vertical-align: middle;
+  border-color: #d7e0ea;
+}
+
+.table thead.table-light th {
+  background: #dde6f0;
+}
+
+.form-control,
+.form-select {
+  border-color: #c8d4e2;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #77aee0;
+  box-shadow: 0 0 0 0.24rem rgba(72, 137, 202, 0.18);
+}
+
+.form-text {
+  font-size: 0.85rem;
+}
+
+.dashboard-shell {
+  animation: reveal-up 440ms ease both;
+}
+
+.dashboard-head {
+  background:
+    linear-gradient(125deg, rgba(20, 68, 112, 0.94), rgba(77, 143, 204, 0.9)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08) 0,
+      rgba(255, 255, 255, 0.08) 8px,
+      rgba(255, 255, 255, 0) 8px,
+      rgba(255, 255, 255, 0) 16px
+    );
+  border-radius: 1rem;
+  padding: 1rem 1.15rem;
+  margin-bottom: 1rem;
+  border: 1px solid #71a5d3;
+}
+
+.dashboard-head h1,
+.dashboard-head .text-muted,
+.dashboard-head #adminLabel {
+  color: #f0f7ff !important;
+}
+
+.dashboard-head #adminLabel {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  padding: 0.35rem 0.72rem;
+  white-space: nowrap;
+}
+
+.dashboard-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  background:
+    linear-gradient(125deg, rgba(20, 68, 112, 0.94), rgba(77, 143, 204, 0.9)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08) 0,
+      rgba(255, 255, 255, 0.08) 8px,
+      rgba(255, 255, 255, 0) 8px,
+      rgba(255, 255, 255, 0) 16px
+    );
+  color: #f1f7ff;
+  padding: 1.3rem 1.4rem;
+  border-radius: 1rem;
+}
+
+.dashboard-kicker {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-size: 0.72rem;
+  opacity: 0.9;
+}
+
+.dashboard-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(1.45rem, 2.2vw, 2.05rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.dashboard-subtitle {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.dashboard-admin {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: #f1f7ff;
+  border-radius: 999px;
+  padding: 0.42rem 0.8rem;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.feature-tile {
+  transition: transform 200ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  background:
+    linear-gradient(180deg, #fefefe 0%, #f7fbff 100%);
+}
+
+.feature-tile:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 24px rgba(40, 69, 101, 0.18);
+  border-color: #9fc1e2;
+}
+
+.feature-key {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(140deg, #3e86c4, #6fb5f1);
+  color: #f7fbff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.55rem;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+}
+
+.feature-note {
+  background: linear-gradient(180deg, #f8fbfe 0%, #edf3f9 100%);
+}
+
+.report-shell {
+  animation: reveal-up 440ms ease both;
+}
+
+.roster-card {
+  border-radius: 0.8rem;
+  overflow: hidden;
+}
+
+.roster-headline {
+  background: linear-gradient(180deg, #5b98cf 0%, #4b86bc 100%);
+  margin: -1rem -1rem 0.9rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 2px solid #d8e6f4;
+}
+
+.roster-headline .h6 {
+  color: #eaf4ff;
+  text-transform: uppercase;
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.04em;
+  font-size: 1.12rem;
+}
+
+.roster-headline .btn {
+  border-color: rgba(235, 246, 255, 0.85);
+  color: #ecf6ff;
+}
+
+.roster-headline .btn:hover {
+  background: rgba(255, 255, 255, 0.17);
+  color: #fff;
+}
+
+.roster-banner {
+  text-align: center;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #5b98cf 0%, #4b86bc 100%);
+  color: #eaf4ff;
+  padding: 1rem 1.2rem 0.9rem;
+  border-bottom: 2px solid #d8e6f4;
+}
+
+.roster-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.roster-meta {
+  margin-top: 0.3rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  opacity: 0.96;
+}
+
+.roster-table {
+  margin-bottom: 0;
+}
+
+.roster-table thead th {
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--sam-header-cell);
+  color: #1a2434;
+  border: 1px solid #d8e0eb;
+  white-space: nowrap;
+}
+
+.roster-table tbody td {
+  background: var(--sam-row-cell);
+  border: 1px solid #d8e0eb;
+}
+
+.roster-table tbody tr:nth-child(odd) td {
+  background: #d9e3ef;
+}
+
+.roster-table tbody td.text-success,
+.roster-table tbody td.text-danger {
+  color: #fff !important;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.roster-table tbody td.text-success {
+  background: var(--sam-pass) !important;
+}
+
+.roster-table tbody td.text-danger {
+  background: var(--sam-fail) !important;
+}
+
+.report-row-select {
+  cursor: pointer;
+}
+
+.report-row-select:hover td {
+  background: #cfdceb;
+}
+
+.roster-table .mark-pass {
+  color: #0d5f36;
+  font-weight: 600;
+}
+
+.roster-table .mark-fail {
+  color: #8e2020;
+  font-weight: 600;
+}
+
+.roster-table .mark-missing {
+  color: #5c687a;
+  font-weight: 600;
+}
+
+.status-pill {
+  display: inline-block;
+  min-width: 4rem;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border-radius: 0.4rem;
+  color: #fff;
+  padding: 0.2rem 0.44rem;
+}
+
+.status-pass {
+  background: var(--sam-pass);
+}
+
+.status-fail {
+  background: var(--sam-fail);
+}
+
+#sheetStatusCell.text-success,
+#sheetStatusCell.text-danger {
+  padding: 0.15rem 0;
+  border-radius: 0.33rem;
+}
+
+.login-card,
+body[data-page='login'] .card {
+  border-radius: 1rem;
+  border: 1px solid #c9d5e4;
+  box-shadow: 0 14px 26px rgba(31, 62, 96, 0.15);
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 991px) {
+  .dashboard-head {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.8rem;
+  }
+
+  .dashboard-head #adminLabel {
+    align-self: stretch;
+    text-align: center;
+  }
+
+  .dashboard-hero {
+    flex-direction: column;
+  }
+
+  .dashboard-admin {
+    align-self: stretch;
+    text-align: center;
+  }
+
+  .roster-title {
+    font-size: 1.2rem;
+  }
+
+  .roster-meta {
+    font-size: 0.84rem;
+  }
+}
