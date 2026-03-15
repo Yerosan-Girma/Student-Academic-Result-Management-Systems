@@ -1,4 +1,5 @@
 const Subject = require('../models/Subject');
+const Teacher = require('../models/Teacher');
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -34,19 +35,34 @@ async function createSubject(req, res, next) {
       return res.status(400).json({ error: 'Subject_Name is required' });
     }
 
-    const deptId = parseNullablePositiveInt(department_id);
+    const deptId = parsePositiveInt(department_id);
+    if (!deptId) {
+      return res.status(400).json({ error: 'Department is required' });
+    }
     const teacherId = parseNullablePositiveInt(teacher_id);
 
     const markNum = total_mark === undefined || total_mark === '' ? 100 : Number(total_mark);
-    if (!Number.isFinite(markNum) || markNum <= 0) {
-      return res.status(400).json({ error: 'Total mark must be a positive number' });
+    if (!Number.isFinite(markNum) || markNum !== 100) {
+      return res.status(400).json({ error: 'Total mark must be exactly 100' });
+    }
+
+    if (teacherId) {
+      const teacher = await Teacher.getById(teacherId);
+      if (!teacher) {
+        return res.status(400).json({ error: 'Teacher not found' });
+      }
+      if (teacher.department_id !== deptId) {
+        return res.status(400).json({
+          error: 'Teacher must belong to the same department as the subject'
+        });
+      }
     }
 
     const subjectId = await Subject.create({
       subject_name: subject_name.trim(),
       department_id: deptId,
       teacher_id: teacherId,
-      total_mark: Math.trunc(markNum)
+      total_mark: 100
     });
 
     const subject = await Subject.getById(subjectId);
@@ -54,6 +70,9 @@ async function createSubject(req, res, next) {
   } catch (err) {
     if (err?.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ error: 'Subject name already exists' });
+    }
+    if (err?.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({ error: 'Department or Teacher does not exist' });
     }
     return next(err);
   }
@@ -70,19 +89,34 @@ async function updateSubject(req, res, next) {
       return res.status(400).json({ error: 'Subject_Name is required' });
     }
 
-    const deptId = parseNullablePositiveInt(department_id);
+    const deptId = parsePositiveInt(department_id);
+    if (!deptId) {
+      return res.status(400).json({ error: 'Department is required' });
+    }
     const teacherId = parseNullablePositiveInt(teacher_id);
 
     const markNum = total_mark === undefined || total_mark === '' ? 100 : Number(total_mark);
-    if (!Number.isFinite(markNum) || markNum <= 0) {
-      return res.status(400).json({ error: 'Total mark must be a positive number' });
+    if (!Number.isFinite(markNum) || markNum !== 100) {
+      return res.status(400).json({ error: 'Total mark must be exactly 100' });
+    }
+
+    if (teacherId) {
+      const teacher = await Teacher.getById(teacherId);
+      if (!teacher) {
+        return res.status(400).json({ error: 'Teacher not found' });
+      }
+      if (teacher.department_id !== deptId) {
+        return res.status(400).json({
+          error: 'Teacher must belong to the same department as the subject'
+        });
+      }
     }
 
     const affected = await Subject.update(subjectId, {
       subject_name: subject_name.trim(),
       department_id: deptId,
       teacher_id: teacherId,
-      total_mark: Math.trunc(markNum)
+      total_mark: 100
     });
 
     if (!affected) return res.status(404).json({ error: 'Subject not found' });
@@ -91,6 +125,9 @@ async function updateSubject(req, res, next) {
   } catch (err) {
     if (err?.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ error: 'Subject name already exists' });
+    }
+    if (err?.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({ error: 'Department or Teacher does not exist' });
     }
     return next(err);
   }

@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS admins (
 
 CREATE TABLE IF NOT EXISTS students (
   student_id INT NOT NULL AUTO_INCREMENT,
+  student_code VARCHAR(50) NOT NULL,
   student_name VARCHAR(150) NOT NULL,
   gender ENUM('Male','Female','Other') NOT NULL,
   grade VARCHAR(20) NOT NULL,
@@ -33,30 +34,41 @@ CREATE TABLE IF NOT EXISTS students (
   semester VARCHAR(20) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (student_id)
+  PRIMARY KEY (student_id),
+  UNIQUE KEY uq_students_code (student_code)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS teachers (
   teacher_id INT NOT NULL AUTO_INCREMENT,
   teacher_name VARCHAR(150) NOT NULL,
-  department_id INT NULL,
+  department_id INT NOT NULL,
   assigned_class VARCHAR(50) NULL,
   role ENUM('Homeroom Teacher','Subject Teacher') NOT NULL DEFAULT 'Subject Teacher',
+  homeroom_class VARCHAR(50)
+    GENERATED ALWAYS AS (
+      CASE
+        WHEN role = 'Homeroom Teacher' THEN assigned_class
+        ELSE NULL
+      END
+    ) STORED,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (teacher_id),
   KEY idx_teachers_department (department_id),
+  UNIQUE KEY uq_homeroom_class (homeroom_class),
+  CONSTRAINT chk_teacher_homeroom_class
+    CHECK (role <> 'Homeroom Teacher' OR assigned_class IS NOT NULL),
   CONSTRAINT fk_teachers_department
     FOREIGN KEY (department_id)
     REFERENCES departments (department_id)
     ON UPDATE CASCADE
-    ON DELETE SET NULL
+    ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS subjects (
   subject_id INT NOT NULL AUTO_INCREMENT,
   subject_name VARCHAR(150) NOT NULL,
-  department_id INT NULL,
+  department_id INT NOT NULL,
   teacher_id INT NULL,
   total_mark INT NOT NULL DEFAULT 100,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -65,11 +77,12 @@ CREATE TABLE IF NOT EXISTS subjects (
   UNIQUE KEY uq_subjects_name (subject_name),
   KEY idx_subjects_department (department_id),
   KEY idx_subjects_teacher (teacher_id),
+  CONSTRAINT chk_subject_total_mark CHECK (total_mark = 100),
   CONSTRAINT fk_subjects_department
     FOREIGN KEY (department_id)
     REFERENCES departments (department_id)
     ON UPDATE CASCADE
-    ON DELETE SET NULL,
+    ON DELETE RESTRICT,
   CONSTRAINT fk_subjects_teacher
     FOREIGN KEY (teacher_id)
     REFERENCES teachers (teacher_id)

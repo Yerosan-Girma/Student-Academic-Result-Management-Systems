@@ -39,8 +39,11 @@ async function getStudentById(req, res, next) {
 
 async function createStudent(req, res, next) {
   try {
-    const { student_name, gender, grade, academic_year, semester } = req.body ?? {};
+    const { student_code, student_name, gender, grade, academic_year, semester } = req.body ?? {};
 
+    if (!isNonEmptyString(student_code)) {
+      return res.status(400).json({ error: 'Student_ID is required' });
+    }
     if (!isNonEmptyString(student_name)) {
       return res.status(400).json({ error: 'Student_Name is required' });
     }
@@ -58,6 +61,7 @@ async function createStudent(req, res, next) {
     }
 
     const studentId = await Student.create({
+      student_code: student_code.trim(),
       student_name: student_name.trim(),
       gender,
       grade: grade.trim(),
@@ -68,6 +72,9 @@ async function createStudent(req, res, next) {
     const student = await Student.getById(studentId);
     return res.status(201).json(student);
   } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Student_ID already exists' });
+    }
     return next(err);
   }
 }
@@ -77,8 +84,11 @@ async function updateStudent(req, res, next) {
     const studentId = parsePositiveInt(req.params.id);
     if (!studentId) return res.status(400).json({ error: 'Invalid student id' });
 
-    const { student_name, gender, grade, academic_year, semester } = req.body ?? {};
+    const { student_code, student_name, gender, grade, academic_year, semester } = req.body ?? {};
 
+    if (!isNonEmptyString(student_code)) {
+      return res.status(400).json({ error: 'Student_ID is required' });
+    }
     if (!isNonEmptyString(student_name)) {
       return res.status(400).json({ error: 'Student_Name is required' });
     }
@@ -96,6 +106,7 @@ async function updateStudent(req, res, next) {
     }
 
     const affected = await Student.update(studentId, {
+      student_code: student_code.trim(),
       student_name: student_name.trim(),
       gender,
       grade: grade.trim(),
@@ -108,6 +119,9 @@ async function updateStudent(req, res, next) {
     const student = await Student.getById(studentId);
     return res.json(student);
   } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Student_ID already exists' });
+    }
     return next(err);
   }
 }

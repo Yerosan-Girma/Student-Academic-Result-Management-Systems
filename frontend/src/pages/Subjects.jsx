@@ -29,7 +29,17 @@ export default function Subjects() {
   const [subjectForm, setSubjectForm] = useState(EMPTY_SUBJECT);
   const modalTitle = subjectForm.subject_id ? 'Edit Subject' : 'Add Subject';
 
-  const canSave = useMemo(() => subjectForm.subject_name.trim().length > 0, [subjectForm]);
+  const canSave = useMemo(() => {
+    return subjectForm.subject_name.trim().length > 0 && subjectForm.department_id !== '';
+  }, [subjectForm]);
+
+  const selectedDepartmentId = subjectForm.department_id
+    ? Number(subjectForm.department_id)
+    : null;
+  const eligibleTeachers = useMemo(() => {
+    if (!selectedDepartmentId) return [];
+    return teachers.filter((t) => Number(t.department_id) === selectedDepartmentId);
+  }, [selectedDepartmentId, teachers]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -310,10 +320,17 @@ export default function Subjects() {
           <select
             className="form-select"
             id="subjectDepartment"
+            required
             value={subjectForm.department_id}
-            onChange={(e) => setSubjectForm((v) => ({ ...v, department_id: e.target.value }))}
+            onChange={(e) =>
+              setSubjectForm((v) => ({
+                ...v,
+                department_id: e.target.value,
+                teacher_id: ''
+              }))
+            }
           >
-            <option value="">(None)</option>
+            <option value="">Select department</option>
             {departments.map((d) => (
               <option key={d.department_id} value={d.department_id}>
                 {d.department_name}
@@ -331,14 +348,16 @@ export default function Subjects() {
             id="subjectTeacher"
             value={subjectForm.teacher_id}
             onChange={(e) => setSubjectForm((v) => ({ ...v, teacher_id: e.target.value }))}
+            disabled={!selectedDepartmentId}
           >
-            <option value="">(Unassigned)</option>
-            {teachers.map((t) => (
+            <option value="">{selectedDepartmentId ? '(Unassigned)' : 'Select department first'}</option>
+            {eligibleTeachers.map((t) => (
               <option key={t.teacher_id} value={t.teacher_id}>
                 {t.teacher_name}
               </option>
             ))}
           </select>
+          <div className="form-text">Teachers are filtered by the selected department.</div>
         </div>
 
         <div className="mb-0">
@@ -351,4 +370,3 @@ export default function Subjects() {
     </main>
   );
 }
-

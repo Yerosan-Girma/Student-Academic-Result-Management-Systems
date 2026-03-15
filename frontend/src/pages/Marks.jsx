@@ -141,7 +141,7 @@ export default function Marks() {
             <option value="">Select...</option>
             {students.map((s) => (
               <option key={s.student_id} value={s.student_id}>
-                {s.student_name} (ID: {s.student_id})
+                {s.student_name} (ID: {s.student_code ?? s.student_id})
               </option>
             ))}
           </select>
@@ -223,4 +223,3 @@ export default function Marks() {
     </main>
   );
 }
-

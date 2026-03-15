@@ -6,6 +6,7 @@ import { useApi } from '../hooks/useApi.js';
 
 const EMPTY_FORM = {
   student_id: null,
+  student_code: '',
   student_name: '',
   gender: '',
   grade: '',
@@ -27,6 +28,7 @@ export default function Students() {
 
   const canSave = useMemo(() => {
     return (
+      form.student_code.trim().length > 0 &&
       form.student_name.trim().length > 0 &&
       ['Male', 'Female', 'Other'].includes(form.gender) &&
       form.grade.trim().length > 0 &&
@@ -62,6 +64,7 @@ export default function Students() {
     setModalAlert(null);
     setForm({
       student_id: student.student_id,
+      student_code: student.student_code ?? '',
       student_name: student.student_name ?? '',
       gender: student.gender ?? '',
       grade: student.grade ?? '',
@@ -89,6 +92,7 @@ export default function Students() {
     setModalAlert(null);
 
     const payload = {
+      student_code: form.student_code,
       student_name: form.student_name,
       gender: form.gender,
       grade: form.grade,
@@ -132,7 +136,7 @@ export default function Students() {
           <table className="table table-striped mb-0">
             <thead className="table-light">
               <tr>
-                <th style={{ width: 90 }}>ID</th>
+                <th style={{ width: 140 }}>ID</th>
                 <th>Name</th>
                 <th style={{ width: 120 }}>Gender</th>
                 <th style={{ width: 120 }}>Grade</th>
@@ -157,7 +161,7 @@ export default function Students() {
               ) : (
                 students.map((s) => (
                   <tr key={s.student_id}>
-                    <td>{s.student_id}</td>
+                    <td>{s.student_code}</td>
                     <td>{s.student_name}</td>
                     <td>{s.gender}</td>
                     <td>{s.grade}</td>
@@ -209,6 +213,20 @@ export default function Students() {
         }
       >
         <Alert alert={modalAlert} onClose={() => setModalAlert(null)} />
+
+        <div className="mb-3">
+          <label className="form-label" htmlFor="studentCode">
+            Student ID
+          </label>
+          <input
+            className="form-control"
+            id="studentCode"
+            required
+            placeholder="e.g., ABC001/16"
+            value={form.student_code}
+            onChange={(e) => setForm((v) => ({ ...v, student_code: e.target.value }))}
+          />
+        </div>
 
         <div className="mb-3">
           <label className="form-label" htmlFor="studentName">
@@ -286,4 +304,3 @@ export default function Students() {
     </main>
   );
 }
-

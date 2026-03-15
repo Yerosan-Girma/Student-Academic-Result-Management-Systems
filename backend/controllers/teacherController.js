@@ -43,7 +43,10 @@ async function createTeacher(req, res, next) {
         .json({ error: 'Role must be Homeroom Teacher or Subject Teacher' });
     }
 
-    const deptId = parseNullablePositiveInt(department_id);
+    const deptId = parsePositiveInt(department_id);
+    if (!deptId) {
+      return res.status(400).json({ error: 'Department is required' });
+    }
     const assignedClass = isNonEmptyString(assigned_class) ? assigned_class.trim() : null;
 
     if (role === 'Homeroom Teacher' && !assignedClass) {
@@ -71,6 +74,14 @@ async function createTeacher(req, res, next) {
     const teacher = await Teacher.getById(teacherId);
     return res.status(201).json(teacher);
   } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY' && `${err?.message || ''}`.includes('uq_homeroom_class')) {
+      return res.status(409).json({
+        error: 'Homeroom teacher already assigned for this class'
+      });
+    }
+    if (err?.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({ error: 'Department does not exist' });
+    }
     return next(err);
   }
 }
@@ -91,7 +102,10 @@ async function updateTeacher(req, res, next) {
         .json({ error: 'Role must be Homeroom Teacher or Subject Teacher' });
     }
 
-    const deptId = parseNullablePositiveInt(department_id);
+    const deptId = parsePositiveInt(department_id);
+    if (!deptId) {
+      return res.status(400).json({ error: 'Department is required' });
+    }
     const assignedClass = isNonEmptyString(assigned_class) ? assigned_class.trim() : null;
 
     if (role === 'Homeroom Teacher' && !assignedClass) {
@@ -123,6 +137,14 @@ async function updateTeacher(req, res, next) {
     const teacher = await Teacher.getById(teacherId);
     return res.json(teacher);
   } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY' && `${err?.message || ''}`.includes('uq_homeroom_class')) {
+      return res.status(409).json({
+        error: 'Homeroom teacher already assigned for this class'
+      });
+    }
+    if (err?.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({ error: 'Department does not exist' });
+    }
     return next(err);
   }
 }

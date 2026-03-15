@@ -3,6 +3,26 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Alert from '../components/Alert.jsx';
 import { useApi } from '../hooks/useApi.js';
 
+function applyDenseRank(items) {
+  const sorted = [...items].sort((a, b) => b.total - a.total);
+  let rank = 0;
+  let lastTotal = null;
+  return sorted.map((report) => {
+    if (lastTotal === null || report.total !== lastTotal) {
+      rank += 1;
+      lastTotal = report.total;
+    }
+    return { ...report, rank };
+  });
+}
+
+function classKeyFor(student) {
+  const grade = student?.grade ?? '';
+  const year = student?.academic_year ?? '';
+  const semester = student?.semester ?? '';
+  return `${grade}||${year}||${semester}`;
+}
+
 export default function Reports() {
   const api = useApi();
 
@@ -10,13 +30,72 @@ export default function Reports() {
   const [alert, setAlert] = useState(null);
 
   const [reports, setReports] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [selectedClassKey, setSelectedClassKey] = useState('');
+
+  const classOptions = useMemo(() => {
+    const map = new Map();
+    for (const report of reports) {
+      const student = report.student ?? {};
+      const key = classKeyFor(student);
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          grade: student.grade ?? '',
+          academic_year: student.academic_year ?? '',
+          semester: student.semester ?? ''
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [reports]);
+
+  useEffect(() => {
+    if (classOptions.length === 0) {
+      setSelectedClassKey('');
+      return;
+    }
+
+    setSelectedClassKey((prev) => {
+      if (!prev) return classOptions[0].key;
+      const exists = classOptions.some((opt) => opt.key === prev);
+      return exists ? prev : classOptions[0].key;
+    });
+  }, [classOptions]);
+
+  const filteredReports = useMemo(() => {
+    if (!selectedClassKey) return reports;
+    return reports.filter((r) => classKeyFor(r.student) === selectedClassKey);
+  }, [reports, selectedClassKey]);
+
+  const rankedReports = useMemo(() => applyDenseRank(filteredReports), [filteredReports]);
+
+  useEffect(() => {
+    if (!selectedStudentId) return;
+    const id = Number(selectedStudentId);
+    if (!rankedReports.some((r) => r.student?.student_id === id)) {
+      setSelectedStudentId('');
+    }
+  }, [rankedReports, selectedStudentId]);
 
   const selectedReport = useMemo(() => {
     const id = selectedStudentId ? Number(selectedStudentId) : null;
     if (!id) return null;
-    return reports.find((r) => r.student?.student_id === id) ?? null;
-  }, [reports, selectedStudentId]);
+    return rankedReports.find((r) => r.student?.student_id === id) ?? null;
+  }, [rankedReports, selectedStudentId]);
+
+  const classMeta = useMemo(() => {
+    if (!selectedClassKey) return null;
+    const option = classOptions.find((opt) => opt.key === selectedClassKey) ?? null;
+    const homeroomName = rankedReports[0]?.homeroom_teacher?.teacher_name ?? '';
+    return {
+      ...option,
+      homeroom_teacher: homeroomName
+    };
+  }, [classOptions, rankedReports, selectedClassKey]);
+
+  const rosterColSpan = 7 + subjects.length;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -24,7 +103,9 @@ export default function Reports() {
     try {
       const data = await api('/reports');
       const nextReports = Array.isArray(data?.reports) ? data.reports : [];
+      const nextSubjects = Array.isArray(data?.subjects) ? data.subjects : [];
       setReports(nextReports);
+      setSubjects(nextSubjects);
 
       setSelectedStudentId((prev) => {
         if (!prev) return '';
@@ -74,70 +155,116 @@ export default function Reports() {
       <Alert alert={alert} onClose={() => setAlert(null)} />
 
       <div className="row g-3">
-        <div className="col-12 col-lg-7">
+        <div className="col-12 col-lg-8">
           <div className="card shadow-sm roster-card">
+            <div className="roster-banner">
+              <div className="roster-title">Student Academic Roster</div>
+              <div className="roster-meta">
+                Grade: {classMeta?.grade || '-'} | Homeroom Teacher:{' '}
+                {classMeta?.homeroom_teacher || 'Not assigned'} | Academic Year:{' '}
+                {classMeta?.academic_year || '-'} | Semester: {classMeta?.semester || '-'}
+              </div>
+            </div>
             <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between mb-2 roster-headline">
-                <h2 className="h6 mb-0">Class Ranking</h2>
-                <button
-                  className="btn btn-outline-primary btn-sm"
-                  type="button"
-                  onClick={onRefresh}
-                  disabled={loading}
-                >
-                  Refresh
-                </button>
+              <div className="d-flex flex-wrap align-items-center justify-content-between mb-2 gap-2">
+                <div className="small text-muted">Class Ranking</div>
+                <div className="d-flex flex-wrap align-items-center gap-2">
+                  <select
+                    className="form-select form-select-sm"
+                    style={{ minWidth: 220 }}
+                    value={selectedClassKey}
+                    onChange={(e) => setSelectedClassKey(e.target.value)}
+                    disabled={loading || classOptions.length === 0}
+                  >
+                    {classOptions.map((opt) => (
+                      <option key={opt.key} value={opt.key}>
+                        {opt.grade || 'Grade'} | {opt.academic_year || 'Year'} | {opt.semester || 'Sem'}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="btn btn-outline-primary btn-sm"
+                    type="button"
+                    onClick={onRefresh}
+                    disabled={loading}
+                  >
+                    Refresh
+                  </button>
+                </div>
               </div>
               <div className="table-responsive">
                 <table className="table table-sm table-striped mb-0 roster-table">
                   <thead className="table-light">
                     <tr>
-                      <th style={{ width: 70 }}>Rank</th>
-                      <th style={{ width: 80 }}>ID</th>
-                      <th>Name</th>
+                      <th>Student Name</th>
+                      <th style={{ width: 90 }}>Gender</th>
+                      <th style={{ width: 110 }}>ID</th>
+                      {subjects.map((sub) => (
+                        <th key={sub.subject_id} style={{ width: 90 }}>
+                          {sub.subject_name}
+                        </th>
+                      ))}
                       <th style={{ width: 90 }}>Total</th>
-                      <th style={{ width: 100 }}>Average</th>
-                      <th style={{ width: 90 }}>Status</th>
-                      <th style={{ width: 80 }}>View</th>
+                      <th style={{ width: 90 }}>Avg</th>
+                      <th style={{ width: 80 }}>Rank</th>
+                      <th style={{ width: 110 }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan={7} className="text-center text-muted py-3">
+                        <td colSpan={rosterColSpan} className="text-center text-muted py-3">
                           Loading...
                         </td>
                       </tr>
-                    ) : reports.length === 0 ? (
+                    ) : rankedReports.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center text-muted py-3">
+                        <td colSpan={rosterColSpan} className="text-center text-muted py-3">
                           No students found.
                         </td>
                       </tr>
                     ) : (
-                      reports.map((r) => (
-                        <tr key={r.student.student_id}>
-                          <td className="fw-semibold">{r.rank}</td>
-                          <td>{r.student.student_id}</td>
-                          <td>{r.student.student_name}</td>
-                          <td>{r.total}</td>
-                          <td>{r.average}</td>
-                          <td
-                            className={`${r.status === 'PASS' ? 'text-success' : 'text-danger'} fw-semibold`}
+                      rankedReports.map((r) => {
+                        const marksBySubject = new Map(
+                          (r.subjectMarks ?? []).map((m) => [m.subject_id, m.mark])
+                        );
+                        return (
+                          <tr
+                            key={r.student.student_id}
+                            className="report-row-select"
+                            onClick={() => setSelectedStudentId(String(r.student.student_id))}
                           >
-                            {r.status}
-                          </td>
-                          <td>
-                            <button
-                              className="btn btn-sm btn-outline-primary"
-                              type="button"
-                              onClick={() => setSelectedStudentId(String(r.student.student_id))}
-                            >
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                            <td className="fw-semibold">{r.student.student_name}</td>
+                            <td>{r.student.gender}</td>
+                            <td>{r.student.student_code ?? r.student.student_id}</td>
+                            {subjects.map((sub) => {
+                              const mark = marksBySubject.get(sub.subject_id);
+                              const missing = mark === null || mark === undefined;
+                              const markText = missing ? '-' : String(mark);
+                              const markClass = missing
+                                ? 'mark-missing'
+                                : mark >= 50
+                                  ? 'mark-pass'
+                                  : 'mark-fail';
+                              return (
+                                <td key={`${r.student.student_id}-${sub.subject_id}`} className={markClass}>
+                                  {markText}
+                                </td>
+                              );
+                            })}
+                            <td className="fw-semibold">{r.total}</td>
+                            <td>{r.average}</td>
+                            <td className="fw-semibold">{r.rank}</td>
+                            <td>
+                              <span
+                                className={`status-pill ${r.status === 'PASS' ? 'status-pass' : 'status-fail'}`}
+                              >
+                                {r.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -146,7 +273,7 @@ export default function Reports() {
           </div>
         </div>
 
-        <div className="col-12 col-lg-5">
+        <div className="col-12 col-lg-4">
           <div className="card shadow-sm result-card">
             <div className="card-body">
               <h2 className="h6 mb-3">Student Result Sheet</h2>
@@ -160,12 +287,12 @@ export default function Reports() {
                   id="reportStudentSelect"
                   value={selectedStudentId}
                   onChange={(e) => setSelectedStudentId(e.target.value)}
-                  disabled={loading || reports.length === 0}
+                  disabled={loading || rankedReports.length === 0}
                 >
                   <option value="">Select...</option>
-                  {reports.map((r) => (
+                  {rankedReports.map((r) => (
                     <option key={r.student.student_id} value={r.student.student_id}>
-                      {r.student.student_name} (ID: {r.student.student_id})
+                      {r.student.student_name} (ID: {r.student.student_code ?? r.student.student_id})
                     </option>
                   ))}
                 </select>
@@ -174,9 +301,11 @@ export default function Reports() {
               {selectedReport ? (
                 <div id="sheetArea">
                   <div className="small text-muted mb-2" id="sheetHeader">
-                    Student: {selectedReport.student.student_name} | ID: {selectedReport.student.student_id}{' '}
-                    | Grade: {selectedReport.student.grade} | Year: {selectedReport.student.academic_year}{' '}
-                    | Semester: {selectedReport.student.semester}
+                    Student: {selectedReport.student.student_name} | ID:{' '}
+                    {selectedReport.student.student_code ?? selectedReport.student.student_id} | Grade:{' '}
+                    {selectedReport.student.grade} | Homeroom Teacher:{' '}
+                    {selectedReport.homeroom_teacher?.teacher_name ?? 'Not assigned'} | Year:{' '}
+                    {selectedReport.student.academic_year} | Semester: {selectedReport.student.semester}
                   </div>
 
                   <div className="table-responsive">
@@ -228,6 +357,7 @@ export default function Reports() {
                           <th>Status</th>
                           <th
                             colSpan={2}
+                            id="sheetStatusCell"
                             className={
                               selectedReport.status === 'PASS'
                                 ? 'text-success fw-semibold'

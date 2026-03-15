@@ -6,12 +6,11 @@ function parsePositiveInt(value) {
   return num;
 }
 
-function computeStatus(subjectMarks, passMark) {
-  for (const item of subjectMarks) {
-    if (item.mark === null || item.mark === undefined) return 'FAIL';
-    if (Number(item.mark) < passMark) return 'FAIL';
-  }
-  return 'PASS';
+function computeStatus({ total, totalOutOf, hasMissing, passPercent }) {
+  if (hasMissing) return 'FAIL';
+  if (!Number.isFinite(totalOutOf) || totalOutOf <= 0) return 'FAIL';
+  const threshold = (totalOutOf * passPercent) / 100;
+  return total >= threshold ? 'PASS' : 'FAIL';
 }
 
 function applyDenseRank(reports) {
@@ -35,11 +34,16 @@ async function buildReports() {
      ORDER BY subject_id ASC`
   );
   const [students] = await pool.execute(
-    `SELECT student_id, student_name, gender, grade, academic_year, semester
+    `SELECT student_id, student_code, student_name, gender, grade, academic_year, semester
      FROM students
      ORDER BY student_id ASC`
   );
   const [marks] = await pool.execute(`SELECT student_id, subject_id, mark FROM marks`);
+  const [homerooms] = await pool.execute(
+    `SELECT teacher_id, teacher_name, assigned_class
+     FROM teachers
+     WHERE role = 'Homeroom Teacher'`
+  );
 
   const subjectsById = new Map(subjects.map((s) => [s.subject_id, s]));
   const studentMarks = new Map(); // student_id -> Map(subject_id -> mark)
@@ -51,7 +55,13 @@ async function buildReports() {
   }
 
   const subjectCount = subjects.length;
-  const passMark = 50;
+  const passPercent = 50;
+  const totalOutOf = subjects.reduce((sum, item) => sum + Number(item.total_mark || 0), 0);
+  const homeroomByClass = new Map(
+    homerooms
+      .filter((t) => t.assigned_class)
+      .map((t) => [String(t.assigned_class).trim(), t])
+  );
 
   const reports = students.map((st) => {
     const marksMap = studentMarks.get(st.student_id) ?? new Map();
@@ -67,15 +77,19 @@ async function buildReports() {
 
     const total = subjectMarks.reduce((sum, item) => sum + (item.mark ?? 0), 0);
     const average = subjectCount > 0 ? total / subjectCount : 0;
-    const status = computeStatus(subjectMarks, passMark);
+    const hasMissing = subjectMarks.some((item) => item.mark === null || item.mark === undefined);
+    const status = computeStatus({ total, totalOutOf, hasMissing, passPercent });
+    const classKey = st.grade ? String(st.grade).trim() : '';
+    const homeroomTeacher = classKey ? homeroomByClass.get(classKey) ?? null : null;
 
     return {
       student: st,
       subjectMarks,
       total,
-      total_out_of: subjectCount * 100,
+      total_out_of: totalOutOf,
       average: Number(average.toFixed(2)),
-      status
+      status,
+      homeroom_teacher: homeroomTeacher
     };
   });
 

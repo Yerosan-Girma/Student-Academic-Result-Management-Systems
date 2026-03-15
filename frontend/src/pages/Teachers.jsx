@@ -28,6 +28,7 @@ export default function Teachers() {
   const canSave = useMemo(() => {
     if (form.teacher_name.trim().length === 0) return false;
     if (!['Homeroom Teacher', 'Subject Teacher'].includes(form.role)) return false;
+    if (!form.department_id) return false;
     if (form.role === 'Homeroom Teacher' && form.assigned_class.trim().length === 0) return false;
     return true;
   }, [form]);
@@ -229,10 +230,11 @@ export default function Teachers() {
           <select
             className="form-select"
             id="teacherDepartment"
+            required
             value={form.department_id}
             onChange={(e) => setForm((v) => ({ ...v, department_id: e.target.value }))}
           >
-            <option value="">(None)</option>
+            <option value="">Select department</option>
             {departments.map((d) => (
               <option key={d.department_id} value={d.department_id}>
                 {d.department_name}
@@ -276,4 +278,3 @@ export default function Teachers() {
     </main>
   );
 }
-
