@@ -132,6 +132,36 @@ export default function Dashboard() {
             </div>
           </Link>
         </div>
+        <div className="col-12 col-md-6 col-lg-4">
+          <Link className="card-link" to="/reports?view=marks">
+            <div className="card shadow-sm h-100 feature-tile">
+              <div className="card-body">
+                <div className="h5 mb-1">View Student Marks</div>
+                <div className="text-muted">Review subject marks by class</div>
+              </div>
+            </div>
+          </Link>
+        </div>
+        <div className="col-12 col-md-6 col-lg-4">
+          <Link className="card-link" to="/reports?view=class">
+            <div className="card shadow-sm h-100 feature-tile">
+              <div className="card-body">
+                <div className="h5 mb-1">Generate Class Report</div>
+                <div className="text-muted">Totals, averages, ranks and PASS/FAIL</div>
+              </div>
+            </div>
+          </Link>
+        </div>
+        <div className="col-12 col-md-6 col-lg-4">
+          <Link className="card-link" to="/reports?view=student">
+            <div className="card shadow-sm h-100 feature-tile">
+              <div className="card-body">
+                <div className="h5 mb-1">Generate Individual Report</div>
+                <div className="text-muted">Open a student result sheet</div>
+              </div>
+            </div>
+          </Link>
+        </div>
       </div>
     </main>
   );
