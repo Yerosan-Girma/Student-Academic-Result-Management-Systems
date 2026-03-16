@@ -5,7 +5,7 @@ import { apiFetch } from '../api/client.js';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [admin, setAdmin] = useState(null);
+  const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
@@ -14,9 +14,9 @@ export function AuthProvider({ children }) {
     (async () => {
       try {
         const me = await apiFetch('/auth/me');
-        if (!cancelled) setAdmin(me);
+        if (!cancelled) setUser(me);
       } catch (err) {
-        if (!cancelled) setAdmin(null);
+        if (!cancelled) setUser(null);
       } finally {
         if (!cancelled) setInitializing(false);
       }
@@ -29,14 +29,14 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(
     () => ({
-      admin,
+      user,
       initializing,
       async login({ username, password }) {
         const me = await apiFetch('/auth/login', {
           method: 'POST',
           body: { username, password }
         });
-        setAdmin(me);
+        setUser(me);
         return me;
       },
       async logout() {
@@ -45,16 +45,16 @@ export function AuthProvider({ children }) {
         } catch (err) {
           // Best-effort logout.
         } finally {
-          setAdmin(null);
+          setUser(null);
         }
       },
       async refresh() {
         const me = await apiFetch('/auth/me');
-        setAdmin(me);
+        setUser(me);
         return me;
       }
     }),
-    [admin, initializing]
+    [user, initializing]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -65,4 +65,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
   return ctx;
 }
-

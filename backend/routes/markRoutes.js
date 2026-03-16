@@ -1,15 +1,13 @@
 const express = require('express');
-const requireAuth = require('../middleware/auth');
+const { requireRole } = require('../middleware/auth');
 const markController = require('../controllers/markController');
 
 const router = express.Router();
 
-router.use(requireAuth);
-
-router.get('/', markController.getAllMarks);
-router.post('/', markController.upsertMark);
-router.post('/bulk', markController.bulkUpsertMarks);
-router.put('/:id', markController.updateMark);
-router.delete('/:id', markController.deleteMark);
+router.get('/', requireRole('Admin', 'Subject Teacher'), markController.getAllMarks);
+router.post('/', requireRole('Admin', 'Subject Teacher'), markController.upsertMark);
+router.post('/bulk', requireRole('Admin', 'Subject Teacher'), markController.bulkUpsertMarks);
+router.put('/:id', requireRole('Admin'), markController.updateMark);
+router.delete('/:id', requireRole('Admin'), markController.deleteMark);
 
 module.exports = router;

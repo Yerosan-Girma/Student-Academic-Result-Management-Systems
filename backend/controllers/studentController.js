@@ -16,7 +16,17 @@ function parsePositiveInt(value) {
 
 async function getAllStudents(req, res, next) {
   try {
-    const students = await Student.list();
+    const grade = isNonEmptyString(req.query?.grade) ? req.query.grade.trim() : null;
+    const academicYear = isNonEmptyString(req.query?.academic_year)
+      ? req.query.academic_year.trim()
+      : null;
+    const semester = isNonEmptyString(req.query?.semester) ? req.query.semester.trim() : null;
+
+    const students = await Student.list({
+      grade,
+      academic_year: academicYear,
+      semester
+    });
     return res.json(students);
   } catch (err) {
     return next(err);

@@ -1,3 +1,4 @@
+const bcrypt = require('bcryptjs');
 const Teacher = require('../models/Teacher');
 
 function isNonEmptyString(value) {
@@ -21,6 +22,10 @@ function isAllowedRole(value) {
   return ['Homeroom Teacher', 'Subject Teacher'].includes(value);
 }
 
+function normalizeUsername(value) {
+  return String(value || '').trim();
+}
+
 async function getAllTeachers(req, res, next) {
   try {
     const teachers = await Teacher.list();
@@ -32,10 +37,19 @@ async function getAllTeachers(req, res, next) {
 
 async function createTeacher(req, res, next) {
   try {
-    const { teacher_name, department_id, assigned_class, role } = req.body ?? {};
+    const { teacher_name, department_id, assigned_class, role, username, password } =
+      req.body ?? {};
+
+    const normalizedUsername = normalizeUsername(username);
 
     if (!isNonEmptyString(teacher_name)) {
       return res.status(400).json({ error: 'Teacher_Name is required' });
+    }
+    if (!isNonEmptyString(normalizedUsername)) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+    if (!isNonEmptyString(password)) {
+      return res.status(400).json({ error: 'Password is required' });
     }
     if (!isAllowedRole(role)) {
       return res
@@ -64,16 +78,23 @@ async function createTeacher(req, res, next) {
       }
     }
 
+    const passwordHash = await bcrypt.hash(password, 10);
+
     const teacherId = await Teacher.create({
       teacher_name: teacher_name.trim(),
       department_id: deptId,
       assigned_class: assignedClass,
-      role
+      role,
+      username: normalizedUsername,
+      password_hash: passwordHash
     });
 
     const teacher = await Teacher.getById(teacherId);
     return res.status(201).json(teacher);
   } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY' && `${err?.message || ''}`.includes('uq_teachers_username')) {
+      return res.status(409).json({ error: 'Username already exists' });
+    }
     if (err?.code === 'ER_DUP_ENTRY' && `${err?.message || ''}`.includes('uq_homeroom_class')) {
       return res.status(409).json({
         error: 'Homeroom teacher already assigned for this class'
@@ -91,10 +112,16 @@ async function updateTeacher(req, res, next) {
     const teacherId = parsePositiveInt(req.params.id);
     if (!teacherId) return res.status(400).json({ error: 'Invalid teacher id' });
 
-    const { teacher_name, department_id, assigned_class, role } = req.body ?? {};
+    const { teacher_name, department_id, assigned_class, role, username, password } =
+      req.body ?? {};
+
+    const normalizedUsername = normalizeUsername(username);
 
     if (!isNonEmptyString(teacher_name)) {
       return res.status(400).json({ error: 'Teacher_Name is required' });
+    }
+    if (!isNonEmptyString(normalizedUsername)) {
+      return res.status(400).json({ error: 'Username is required' });
     }
     if (!isAllowedRole(role)) {
       return res
@@ -126,17 +153,24 @@ async function updateTeacher(req, res, next) {
       }
     }
 
+    const passwordHash = isNonEmptyString(password) ? await bcrypt.hash(password, 10) : null;
+
     const affected = await Teacher.update(teacherId, {
       teacher_name: teacher_name.trim(),
       department_id: deptId,
       assigned_class: assignedClass,
-      role
+      role,
+      username: normalizedUsername,
+      password_hash: passwordHash
     });
 
     if (!affected) return res.status(404).json({ error: 'Teacher not found' });
     const teacher = await Teacher.getById(teacherId);
     return res.json(teacher);
   } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY' && `${err?.message || ''}`.includes('uq_teachers_username')) {
+      return res.status(409).json({ error: 'Username already exists' });
+    }
     if (err?.code === 'ER_DUP_ENTRY' && `${err?.message || ''}`.includes('uq_homeroom_class')) {
       return res.status(409).json({
         error: 'Homeroom teacher already assigned for this class'

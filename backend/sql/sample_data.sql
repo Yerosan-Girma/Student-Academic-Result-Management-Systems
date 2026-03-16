@@ -1,5 +1,8 @@
 USE student_academic_management;
 
+-- Default password for sample teachers: teacher123
+SET @teacher_hash = '$2b$10$j4BvY04l1vl4SdyAYzokKuCWwSQ4zFAMnR8CUKzIZfQPSHcs6/lG2';
+
 -- Departments (subject-based, scalable)
 INSERT INTO departments (department_name) VALUES
   ('Maths'),
@@ -23,48 +26,85 @@ ON DUPLICATE KEY UPDATE
   total_mark = VALUES(total_mark);
 
 -- Default teachers (subject-based departments)
-INSERT INTO teachers (teacher_name, department_id, assigned_class, role)
+INSERT INTO teachers (teacher_name, department_id, assigned_class, role, username, password_hash)
 SELECT 'Mr. Genet',
        (SELECT department_id FROM departments WHERE department_name = 'Maths' LIMIT 1),
        NULL,
-       'Subject Teacher'
+       'Subject Teacher',
+       'genet',
+       @teacher_hash
 WHERE NOT EXISTS (SELECT 1 FROM teachers WHERE teacher_name = 'Mr. Genet');
 
-INSERT INTO teachers (teacher_name, department_id, assigned_class, role)
+INSERT INTO teachers (teacher_name, department_id, assigned_class, role, username, password_hash)
 SELECT 'Ms. Alemu',
        (SELECT department_id FROM departments WHERE department_name = 'English' LIMIT 1),
        NULL,
-       'Subject Teacher'
+       'Subject Teacher',
+       'alemu',
+       @teacher_hash
 WHERE NOT EXISTS (SELECT 1 FROM teachers WHERE teacher_name = 'Ms. Alemu');
 
-INSERT INTO teachers (teacher_name, department_id, assigned_class, role)
+INSERT INTO teachers (teacher_name, department_id, assigned_class, role, username, password_hash)
 SELECT 'Mr. Tola',
        (SELECT department_id FROM departments WHERE department_name = 'Biology' LIMIT 1),
        NULL,
-       'Subject Teacher'
+       'Subject Teacher',
+       'tola',
+       @teacher_hash
 WHERE NOT EXISTS (SELECT 1 FROM teachers WHERE teacher_name = 'Mr. Tola');
 
-INSERT INTO teachers (teacher_name, department_id, assigned_class, role)
+INSERT INTO teachers (teacher_name, department_id, assigned_class, role, username, password_hash)
 SELECT 'Ms. OLyad',
        (SELECT department_id FROM departments WHERE department_name = 'Chemistry' LIMIT 1),
        NULL,
-       'Subject Teacher'
+       'Subject Teacher',
+       'olyad',
+       @teacher_hash
 WHERE NOT EXISTS (SELECT 1 FROM teachers WHERE teacher_name = 'Ms. OLyad');
 
-INSERT INTO teachers (teacher_name, department_id, assigned_class, role)
+INSERT INTO teachers (teacher_name, department_id, assigned_class, role, username, password_hash)
 SELECT 'Mr. Alemayehu',
        (SELECT department_id FROM departments WHERE department_name = 'Physics' LIMIT 1),
        NULL,
-       'Subject Teacher'
+       'Subject Teacher',
+       'alemayehu',
+       @teacher_hash
 WHERE NOT EXISTS (SELECT 1 FROM teachers WHERE teacher_name = 'Mr. Alemayehu');
 
 -- One homeroom teacher per class (example class: 9A)
-INSERT INTO teachers (teacher_name, department_id, assigned_class, role)
+INSERT INTO teachers (teacher_name, department_id, assigned_class, role, username, password_hash)
 SELECT 'Addisu',
        (SELECT department_id FROM departments WHERE department_name = 'Maths' LIMIT 1),
        '9A',
-       'Homeroom Teacher'
+       'Homeroom Teacher',
+       'addisu',
+       @teacher_hash
 WHERE NOT EXISTS (SELECT 1 FROM teachers WHERE role = 'Homeroom Teacher' AND assigned_class = '9A');
+
+-- Ensure sample teachers have login credentials (if they already existed)
+UPDATE teachers
+SET username = 'genet', password_hash = @teacher_hash
+WHERE teacher_name = 'Mr. Genet' AND (username IS NULL OR username = '');
+
+UPDATE teachers
+SET username = 'alemu', password_hash = @teacher_hash
+WHERE teacher_name = 'Ms. Alemu' AND (username IS NULL OR username = '');
+
+UPDATE teachers
+SET username = 'tola', password_hash = @teacher_hash
+WHERE teacher_name = 'Mr. Tola' AND (username IS NULL OR username = '');
+
+UPDATE teachers
+SET username = 'olyad', password_hash = @teacher_hash
+WHERE teacher_name = 'Ms. OLyad' AND (username IS NULL OR username = '');
+
+UPDATE teachers
+SET username = 'alemayehu', password_hash = @teacher_hash
+WHERE teacher_name = 'Mr. Alemayehu' AND (username IS NULL OR username = '');
+
+UPDATE teachers
+SET username = 'addisu', password_hash = @teacher_hash
+WHERE teacher_name = 'Addisu' AND (username IS NULL OR username = '');
 
 -- Assign subject teachers to subjects (department must match)
 UPDATE subjects

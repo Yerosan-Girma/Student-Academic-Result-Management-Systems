@@ -1,12 +1,10 @@
 const express = require('express');
-const requireAuth = require('../middleware/auth');
+const { requireRole } = require('../middleware/auth');
 const reportController = require('../controllers/reportController');
 
 const router = express.Router();
 
-router.use(requireAuth);
-
-router.get('/', reportController.getReports);
-router.get('/:studentId', reportController.getReportByStudent);
+router.get('/', requireRole('Admin', 'Homeroom Teacher'), reportController.getReports);
+router.get('/:studentId', requireRole('Admin', 'Homeroom Teacher'), reportController.getReportByStudent);
 
 module.exports = router;

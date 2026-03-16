@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE TABLE IF NOT EXISTS teachers (
   teacher_id INT NOT NULL AUTO_INCREMENT,
   teacher_name VARCHAR(150) NOT NULL,
+  username VARCHAR(50) NULL,
+  password_hash VARCHAR(255) NULL,
   department_id INT NOT NULL,
   assigned_class VARCHAR(50) NULL,
   role ENUM('Homeroom Teacher','Subject Teacher') NOT NULL DEFAULT 'Subject Teacher',
@@ -55,6 +57,7 @@ CREATE TABLE IF NOT EXISTS teachers (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (teacher_id),
   KEY idx_teachers_department (department_id),
+  UNIQUE KEY uq_teachers_username (username),
   UNIQUE KEY uq_homeroom_class (homeroom_class),
   CONSTRAINT chk_teacher_homeroom_class
     CHECK (role <> 'Homeroom Teacher' OR assigned_class IS NOT NULL),
@@ -94,6 +97,7 @@ CREATE TABLE IF NOT EXISTS marks (
   mark_id INT NOT NULL AUTO_INCREMENT,
   student_id INT NOT NULL,
   subject_id INT NOT NULL,
+  teacher_id INT NULL,
   mark INT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -101,6 +105,7 @@ CREATE TABLE IF NOT EXISTS marks (
   UNIQUE KEY uq_marks_student_subject (student_id, subject_id),
   KEY idx_marks_student (student_id),
   KEY idx_marks_subject (subject_id),
+  KEY idx_marks_teacher (teacher_id),
   CONSTRAINT fk_marks_student
     FOREIGN KEY (student_id)
     REFERENCES students (student_id)
@@ -111,5 +116,10 @@ CREATE TABLE IF NOT EXISTS marks (
     REFERENCES subjects (subject_id)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
+  CONSTRAINT fk_marks_teacher
+    FOREIGN KEY (teacher_id)
+    REFERENCES teachers (teacher_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL,
   CONSTRAINT chk_mark_range CHECK (mark >= 0 AND mark <= 100)
 ) ENGINE=InnoDB;

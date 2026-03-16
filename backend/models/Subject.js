@@ -1,6 +1,16 @@
 const pool = require('../config/db');
 
-async function list() {
+async function list({ teacher_id = null } = {}) {
+  const where = [];
+  const params = [];
+
+  if (teacher_id) {
+    where.push('s.teacher_id = ?');
+    params.push(teacher_id);
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
   const [rows] = await pool.execute(
     `SELECT
         s.subject_id,
@@ -13,7 +23,9 @@ async function list() {
      FROM subjects s
      LEFT JOIN departments d ON d.department_id = s.department_id
      LEFT JOIN teachers t ON t.teacher_id = s.teacher_id
-     ORDER BY s.subject_id DESC`
+     ${whereSql}
+     ORDER BY s.subject_id DESC`,
+    params
   );
   return rows;
 }
@@ -26,6 +38,16 @@ async function getById(subjectId) {
     [subjectId]
   );
   return rows[0] ?? null;
+}
+
+async function isAssignedToTeacher(subjectId, teacherId) {
+  const [rows] = await pool.execute(
+    `SELECT subject_id
+     FROM subjects
+     WHERE subject_id = ? AND teacher_id = ?`,
+    [subjectId, teacherId]
+  );
+  return rows.length > 0;
 }
 
 async function create(subject) {
@@ -68,6 +90,7 @@ async function remove(subjectId) {
 module.exports = {
   list,
   getById,
+  isAssignedToTeacher,
   create,
   update,
   remove

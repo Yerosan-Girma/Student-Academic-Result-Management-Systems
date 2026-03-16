@@ -156,7 +156,7 @@ export default function Reports() {
 
       <div className="row g-3">
         <div className="col-12 col-lg-8">
-          <div className="card shadow-sm roster-card">
+          <div className="card shadow-sm roster-card" id="classRoster">
             <div className="roster-banner">
               <div className="roster-title">Student Academic Roster</div>
               <div className="roster-meta">
@@ -274,7 +274,7 @@ export default function Reports() {
         </div>
 
         <div className="col-12 col-lg-4">
-          <div className="card shadow-sm result-card">
+          <div className="card shadow-sm result-card" id="studentResult">
             <div className="card-body">
               <h2 className="h6 mb-3">Student Result Sheet</h2>
 

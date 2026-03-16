@@ -8,9 +8,11 @@ function navLinkClass({ isActive }) {
 }
 
 export default function SamNavbar() {
-  const { admin, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const role = user?.role ?? 'Admin';
+  const displayName = user?.teacher_name ?? user?.username ?? '';
 
   async function onLogout() {
     await logout();
@@ -41,37 +43,45 @@ export default function SamNavbar() {
                 Dashboard
               </NavLink>
             </li>
-            <li className="nav-item">
-              <NavLink className={navLinkClass} to="/students" onClick={() => setOpen(false)}>
-                Students
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink className={navLinkClass} to="/subjects" onClick={() => setOpen(false)}>
-                Subjects
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink className={navLinkClass} to="/teachers" onClick={() => setOpen(false)}>
-                Teachers
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink className={navLinkClass} to="/marks" onClick={() => setOpen(false)}>
-                Marks
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink className={navLinkClass} to="/reports" onClick={() => setOpen(false)}>
-                Reports
-              </NavLink>
-            </li>
+            {role === 'Admin' ? (
+              <>
+                <li className="nav-item">
+                  <NavLink className={navLinkClass} to="/students" onClick={() => setOpen(false)}>
+                    Students
+                  </NavLink>
+                </li>
+                <li className="nav-item">
+                  <NavLink className={navLinkClass} to="/subjects" onClick={() => setOpen(false)}>
+                    Subjects
+                  </NavLink>
+                </li>
+                <li className="nav-item">
+                  <NavLink className={navLinkClass} to="/teachers" onClick={() => setOpen(false)}>
+                    Teachers
+                  </NavLink>
+                </li>
+              </>
+            ) : null}
+            {role === 'Subject Teacher' ? (
+              <li className="nav-item">
+                <NavLink className={navLinkClass} to="/marks" onClick={() => setOpen(false)}>
+                  Marks
+                </NavLink>
+              </li>
+            ) : null}
+            {role === 'Homeroom Teacher' ? (
+              <li className="nav-item">
+                <NavLink className={navLinkClass} to="/reports" onClick={() => setOpen(false)}>
+                  Reports
+                </NavLink>
+              </li>
+            ) : null}
           </ul>
 
           <div className="d-flex gap-2 align-items-center">
-            {admin?.username ? (
+            {displayName ? (
               <div className="sam-admin-pill small d-none d-lg-block">
-                Logged in as: {admin.username}
+                Logged in as: {displayName}
               </div>
             ) : null}
             <button className="btn btn-outline-light btn-sm" type="button" onClick={onLogout}>
@@ -83,4 +93,3 @@ export default function SamNavbar() {
     </nav>
   );
 }
-

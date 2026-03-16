@@ -5,8 +5,15 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import Alert from '../components/Alert.jsx';
 import FullPageLoader from '../components/FullPageLoader.jsx';
 
+function getLandingPath(currentUser) {
+  if (!currentUser) return '/dashboard';
+  if (currentUser.role === 'Subject Teacher') return '/marks';
+  if (currentUser.role === 'Homeroom Teacher') return '/reports';
+  return '/dashboard';
+}
+
 export default function Login() {
-  const { admin, initializing, login } = useAuth();
+  const { user, initializing, login } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ username: '', password: '' });
@@ -18,16 +25,16 @@ export default function Login() {
   }, [form, busy]);
 
   useEffect(() => {
-    if (!initializing && admin) navigate('/dashboard', { replace: true });
-  }, [admin, initializing, navigate]);
+    if (!initializing && user) navigate(getLandingPath(user), { replace: true });
+  }, [user, initializing, navigate]);
 
   async function onSubmit(e) {
     e.preventDefault();
     setAlert(null);
     setBusy(true);
     try {
-      await login({ username: form.username, password: form.password });
-      navigate('/dashboard', { replace: true });
+      const me = await login({ username: form.username, password: form.password });
+      navigate(getLandingPath(me), { replace: true });
     } catch (err) {
       setAlert({ type: 'danger', message: err?.message || 'Login failed' });
     } finally {
@@ -43,7 +50,7 @@ export default function Login() {
         <div className="col-12 col-md-6 col-lg-4">
           <div className="card shadow-sm login-card">
             <div className="card-body p-4">
-              <h1 className="h4 mb-3">Admin Login</h1>
+              <h1 className="h4 mb-3">User Login</h1>
               <p className="text-muted mb-4">Student Academic Record Management System</p>
 
               <Alert alert={alert} onClose={() => setAlert(null)} />
@@ -84,8 +91,13 @@ export default function Login() {
               </form>
 
               <div className="form-text mt-3">
-                Default (first run): <span className="fw-semibold">admin</span> /{' '}
+                Default admin: <span className="fw-semibold">admin</span> /{' '}
                 <span className="fw-semibold">admin123</span>
+              </div>
+              <div className="form-text">
+                Sample teachers (if seeded): <span className="fw-semibold">genet</span>,{' '}
+                <span className="fw-semibold">alemu</span>, <span className="fw-semibold">addisu</span>{' '}
+                / <span className="fw-semibold">teacher123</span>
               </div>
             </div>
           </div>
@@ -95,4 +107,3 @@ export default function Login() {
     </main>
   );
 }
-

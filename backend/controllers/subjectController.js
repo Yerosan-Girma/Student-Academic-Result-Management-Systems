@@ -20,7 +20,12 @@ function parsePositiveInt(value) {
 
 async function getAllSubjects(req, res, next) {
   try {
-    const subjects = await Subject.list();
+    const user = req.session?.user ?? null;
+    const teacherId =
+      user && user.role === 'Subject Teacher' && Number(user.teacher_id) > 0
+        ? Number(user.teacher_id)
+        : null;
+    const subjects = await Subject.list({ teacher_id: teacherId });
     return res.json(subjects);
   } catch (err) {
     return next(err);

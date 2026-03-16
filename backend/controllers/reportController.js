@@ -27,16 +27,21 @@ function applyDenseRank(reports) {
   return sorted;
 }
 
-async function buildReports() {
+async function buildReports({ classFilter = null } = {}) {
   const [subjects] = await pool.execute(
     `SELECT subject_id, subject_name, total_mark
      FROM subjects
      ORDER BY subject_id ASC`
   );
+
+  const studentWhere = classFilter ? 'WHERE grade = ?' : '';
+  const studentParams = classFilter ? [classFilter] : [];
   const [students] = await pool.execute(
     `SELECT student_id, student_code, student_name, gender, grade, academic_year, semester
      FROM students
-     ORDER BY student_id ASC`
+     ${studentWhere}
+     ORDER BY student_id ASC`,
+    studentParams
   );
   const [marks] = await pool.execute(`SELECT student_id, subject_id, mark FROM marks`);
   const [homerooms] = await pool.execute(
@@ -99,7 +104,20 @@ async function buildReports() {
 
 async function getReports(req, res, next) {
   try {
-    const data = await buildReports();
+    const user = req.session?.user ?? null;
+    const classFilter =
+      user?.role === 'Homeroom Teacher' ? (user.assigned_class ?? null) : null;
+
+    if (user?.role === 'Homeroom Teacher' && !classFilter) {
+      const [subjects] = await pool.execute(
+        `SELECT subject_id, subject_name, total_mark
+         FROM subjects
+         ORDER BY subject_id ASC`
+      );
+      return res.json({ subjects, reports: [] });
+    }
+
+    const data = await buildReports({ classFilter });
     return res.json(data);
   } catch (err) {
     return next(err);
@@ -111,7 +129,15 @@ async function getReportByStudent(req, res, next) {
     const studentId = parsePositiveInt(req.params.studentId);
     if (!studentId) return res.status(400).json({ error: 'Invalid student id' });
 
-    const data = await buildReports();
+    const user = req.session?.user ?? null;
+    const classFilter =
+      user?.role === 'Homeroom Teacher' ? (user.assigned_class ?? null) : null;
+
+    if (user?.role === 'Homeroom Teacher' && !classFilter) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const data = await buildReports({ classFilter });
     const report = data.reports.find((r) => r.student.student_id === studentId);
     if (!report) return res.status(404).json({ error: 'Student not found' });
 

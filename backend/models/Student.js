@@ -1,10 +1,30 @@
 const pool = require('../config/db');
 
-async function list() {
+async function list({ grade = null, academic_year = null, semester = null } = {}) {
+  const where = [];
+  const params = [];
+
+  if (grade) {
+    where.push('grade = ?');
+    params.push(grade);
+  }
+  if (academic_year) {
+    where.push('academic_year = ?');
+    params.push(academic_year);
+  }
+  if (semester) {
+    where.push('semester = ?');
+    params.push(semester);
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
   const [rows] = await pool.execute(
     `SELECT student_id, student_code, student_name, gender, grade, academic_year, semester
      FROM students
-     ORDER BY student_id DESC`
+     ${whereSql}
+     ORDER BY student_id DESC`,
+    params
   );
   return rows;
 }

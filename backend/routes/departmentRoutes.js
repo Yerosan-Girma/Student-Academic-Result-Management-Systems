@@ -1,10 +1,10 @@
 const express = require('express');
-const requireAuth = require('../middleware/auth');
+const { requireRole } = require('../middleware/auth');
 const departmentController = require('../controllers/departmentController');
 
 const router = express.Router();
 
-router.use(requireAuth);
+router.use(requireRole('Admin'));
 
 router.get('/', departmentController.getAllDepartments);
 router.post('/', departmentController.createDepartment);

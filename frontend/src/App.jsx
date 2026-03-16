@@ -3,6 +3,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { AuthProvider } from './auth/AuthProvider.jsx';
 import RequireAuth from './auth/RequireAuth.jsx';
+import RequireRole from './auth/RequireRole.jsx';
 import AppLayout from './components/AppLayout.jsx';
 
 import Dashboard from './pages/Dashboard.jsx';
@@ -23,11 +24,17 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/students" element={<Students />} />
-              <Route path="/subjects" element={<Subjects />} />
-              <Route path="/teachers" element={<Teachers />} />
-              <Route path="/marks" element={<Marks />} />
-              <Route path="/reports" element={<Reports />} />
+              <Route element={<RequireRole roles={['Admin']} />}>
+                <Route path="/students" element={<Students />} />
+                <Route path="/subjects" element={<Subjects />} />
+                <Route path="/teachers" element={<Teachers />} />
+              </Route>
+              <Route element={<RequireRole roles={['Admin', 'Subject Teacher']} />}>
+                <Route path="/marks" element={<Marks />} />
+              </Route>
+              <Route element={<RequireRole roles={['Admin', 'Homeroom Teacher']} />}>
+                <Route path="/reports" element={<Reports />} />
+              </Route>
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -36,4 +43,3 @@ export default function App() {
     </HashRouter>
   );
 }
-

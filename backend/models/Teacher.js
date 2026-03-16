@@ -8,7 +8,8 @@ async function list() {
         t.department_id,
         d.department_name,
         t.assigned_class,
-        t.role
+        t.role,
+        t.username
      FROM teachers t
      LEFT JOIN departments d ON d.department_id = t.department_id
      ORDER BY t.teacher_id DESC`
@@ -18,10 +19,20 @@ async function list() {
 
 async function getById(teacherId) {
   const [rows] = await pool.execute(
-    `SELECT teacher_id, teacher_name, department_id, assigned_class, role
+    `SELECT teacher_id, teacher_name, department_id, assigned_class, role, username
      FROM teachers
      WHERE teacher_id = ?`,
     [teacherId]
+  );
+  return rows[0] ?? null;
+}
+
+async function findByUsername(username) {
+  const [rows] = await pool.execute(
+    `SELECT teacher_id, teacher_name, department_id, assigned_class, role, username, password_hash
+     FROM teachers
+     WHERE username = ?`,
+    [username]
   );
   return rows[0] ?? null;
 }
@@ -47,13 +58,15 @@ async function findHomeroomConflict({ assigned_class, teacher_id = null }) {
 
 async function create(teacher) {
   const [result] = await pool.execute(
-    `INSERT INTO teachers (teacher_name, department_id, assigned_class, role)
-     VALUES (?, ?, ?, ?)`,
+    `INSERT INTO teachers (teacher_name, department_id, assigned_class, role, username, password_hash)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [
       teacher.teacher_name,
       teacher.department_id ?? null,
       teacher.assigned_class ?? null,
-      teacher.role
+      teacher.role,
+      teacher.username ?? null,
+      teacher.password_hash ?? null
     ]
   );
   return result.insertId;
@@ -62,13 +75,16 @@ async function create(teacher) {
 async function update(teacherId, teacher) {
   const [result] = await pool.execute(
     `UPDATE teachers
-     SET teacher_name = ?, department_id = ?, assigned_class = ?, role = ?
+     SET teacher_name = ?, department_id = ?, assigned_class = ?, role = ?, username = ?,
+         password_hash = COALESCE(?, password_hash)
      WHERE teacher_id = ?`,
     [
       teacher.teacher_name,
       teacher.department_id ?? null,
       teacher.assigned_class ?? null,
       teacher.role,
+      teacher.username ?? null,
+      teacher.password_hash ?? null,
       teacherId
     ]
   );
@@ -85,6 +101,7 @@ async function remove(teacherId) {
 module.exports = {
   list,
   getById,
+  findByUsername,
   findHomeroomConflict,
   create,
   update,

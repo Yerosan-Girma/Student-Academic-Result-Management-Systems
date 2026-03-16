@@ -1,14 +1,16 @@
 const express = require('express');
-const requireAuth = require('../middleware/auth');
+const { requireRole } = require('../middleware/auth');
 const subjectController = require('../controllers/subjectController');
 
 const router = express.Router();
 
-router.use(requireAuth);
-
-router.get('/', subjectController.getAllSubjects);
-router.post('/', subjectController.createSubject);
-router.put('/:id', subjectController.updateSubject);
-router.delete('/:id', subjectController.deleteSubject);
+router.get(
+  '/',
+  requireRole('Admin', 'Subject Teacher', 'Homeroom Teacher'),
+  subjectController.getAllSubjects
+);
+router.post('/', requireRole('Admin'), subjectController.createSubject);
+router.put('/:id', requireRole('Admin'), subjectController.updateSubject);
+router.delete('/:id', requireRole('Admin'), subjectController.deleteSubject);
 
 module.exports = router;

@@ -4,19 +4,100 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 
 export default function Dashboard() {
-  const { admin } = useAuth();
+  const { user } = useAuth();
+  const displayName = user?.teacher_name ?? user?.username ?? '';
+  const role = user?.role ?? 'Admin';
+
+  if (role === 'Subject Teacher') {
+    return (
+      <main className="container py-4 dashboard-shell">
+        <div className="d-flex align-items-center justify-content-between mb-3 dashboard-head">
+          <div>
+            <h1 className="h4 mb-1">Teacher Dashboard</h1>
+            <div className="text-muted small">Enter marks for your subject</div>
+          </div>
+          <div className="text-muted small" id="adminLabel">
+            {displayName ? `Logged in as: ${displayName}` : ''}
+          </div>
+        </div>
+
+        <div className="row g-3">
+          <div className="col-12 col-md-6 col-lg-4">
+            <Link className="card-link" to="/marks">
+              <div className="card shadow-sm h-100 feature-tile">
+                <div className="card-body">
+                  <div className="h5 mb-1">Enter Marks</div>
+                  <div className="text-muted">Select class, semester, and record marks</div>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (role === 'Homeroom Teacher') {
+    return (
+      <main className="container py-4 dashboard-shell">
+        <div className="d-flex align-items-center justify-content-between mb-3 dashboard-head">
+          <div>
+            <h1 className="h4 mb-1">Homeroom Dashboard</h1>
+            <div className="text-muted small">
+              Compile results and generate student reports
+              {user?.assigned_class ? ` | Class: ${user.assigned_class}` : ''}
+            </div>
+          </div>
+          <div className="text-muted small" id="adminLabel">
+            {displayName ? `Logged in as: ${displayName}` : ''}
+          </div>
+        </div>
+
+        <div className="row g-3">
+          <div className="col-12 col-md-6 col-lg-4">
+            <Link className="card-link" to="/reports#classRoster">
+              <div className="card shadow-sm h-100 feature-tile">
+                <div className="card-body">
+                  <div className="h5 mb-1">View Student Marks</div>
+                  <div className="text-muted">See class roster with totals and ranks</div>
+                </div>
+              </div>
+            </Link>
+          </div>
+          <div className="col-12 col-md-6 col-lg-4">
+            <Link className="card-link" to="/reports#classRoster">
+              <div className="card shadow-sm h-100 feature-tile">
+                <div className="card-body">
+                  <div className="h5 mb-1">Generate Class Report</div>
+                  <div className="text-muted">View totals, averages, and rankings</div>
+                </div>
+              </div>
+            </Link>
+          </div>
+          <div className="col-12 col-md-6 col-lg-4">
+            <Link className="card-link" to="/reports#studentResult">
+              <div className="card shadow-sm h-100 feature-tile">
+                <div className="card-body">
+                  <div className="h5 mb-1">Generate Individual Report</div>
+                  <div className="text-muted">Open a student result sheet</div>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="container py-4 dashboard-shell">
       <div className="d-flex align-items-center justify-content-between mb-3 dashboard-head">
         <div>
           <h1 className="h4 mb-1">Dashboard</h1>
-          <div className="text-muted small">
-            Manage students, subjects, teachers, marks and reports
-          </div>
+          <div className="text-muted small">Manage students, subjects, teachers, and homeroom</div>
         </div>
         <div className="text-muted small" id="adminLabel">
-          {admin?.username ? `Logged in as: ${admin.username}` : ''}
+          {displayName ? `Logged in as: ${displayName}` : ''}
         </div>
       </div>
 
@@ -51,28 +132,7 @@ export default function Dashboard() {
             </div>
           </Link>
         </div>
-        <div className="col-12 col-md-6 col-lg-4">
-          <Link className="card-link" to="/marks">
-            <div className="card shadow-sm h-100 feature-tile">
-              <div className="card-body">
-                <div className="h5 mb-1">Marks</div>
-                <div className="text-muted">Enter and update marks per student per subject</div>
-              </div>
-            </div>
-          </Link>
-        </div>
-        <div className="col-12 col-md-6 col-lg-4">
-          <Link className="card-link" to="/reports">
-            <div className="card shadow-sm h-100 feature-tile">
-              <div className="card-body">
-                <div className="h5 mb-1">Reports</div>
-                <div className="text-muted">Generate totals, averages, rank and PASS/FAIL</div>
-              </div>
-            </div>
-          </Link>
-        </div>
       </div>
     </main>
   );
 }
-

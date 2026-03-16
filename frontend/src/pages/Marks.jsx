@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Alert from '../components/Alert.jsx';
 import { useApi } from '../hooks/useApi.js';
+import { useAuth } from '../auth/AuthProvider.jsx';
 
 function computeStatus(value) {
   if (value === '') return { text: '-', cls: 'text-muted fw-semibold' };
@@ -13,20 +14,89 @@ function computeStatus(value) {
   return { text: 'FAIL', cls: 'text-danger fw-semibold' };
 }
 
+function sortText(a, b) {
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+}
+
 export default function Marks() {
   const api = useApi();
+  const { user } = useAuth();
 
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
 
-  const [currentStudentId, setCurrentStudentId] = useState('');
-  const [marksBySubject, setMarksBySubject] = useState({});
+  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedSemester, setSelectedSemester] = useState('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState('');
+
+  const [marksByStudent, setMarksByStudent] = useState({});
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [alert, setAlert] = useState(null);
 
-  const canInteract = useMemo(() => currentStudentId !== '' && !busy, [currentStudentId, busy]);
+  const classOptions = useMemo(() => {
+    const set = new Set();
+    students.forEach((student) => {
+      const grade = String(student.grade ?? '').trim();
+      if (grade) set.add(grade);
+    });
+    return Array.from(set).sort(sortText);
+  }, [students]);
+
+  const semesterOptions = useMemo(() => {
+    const set = new Set();
+    students.forEach((student) => {
+      const semester = String(student.semester ?? '').trim();
+      if (semester) set.add(semester);
+    });
+    return Array.from(set).sort(sortText);
+  }, [students]);
+
+  const subjectOptions = useMemo(() => {
+    return subjects
+      .map((subject) => ({
+        id: String(subject.subject_id),
+        name: subject.subject_name
+      }))
+      .sort((a, b) => sortText(a.name, b.name));
+  }, [subjects]);
+
+  useEffect(() => {
+    if (!selectedClass && classOptions.length > 0) {
+      setSelectedClass(classOptions[0]);
+    }
+  }, [classOptions, selectedClass]);
+
+  useEffect(() => {
+    if (!selectedSemester && semesterOptions.length > 0) {
+      setSelectedSemester(semesterOptions[0]);
+    }
+  }, [semesterOptions, selectedSemester]);
+
+  useEffect(() => {
+    if (!selectedSubjectId && subjectOptions.length > 0) {
+      setSelectedSubjectId(subjectOptions[0].id);
+    }
+  }, [subjectOptions, selectedSubjectId]);
+
+  const filteredStudents = useMemo(() => {
+    if (!selectedClass || !selectedSemester) return [];
+    return students.filter((student) => {
+      const grade = String(student.grade ?? '').trim();
+      const semester = String(student.semester ?? '').trim();
+      return grade === selectedClass && semester === selectedSemester;
+    });
+  }, [students, selectedClass, selectedSemester]);
+
+  const selectedSubjectName = useMemo(() => {
+    return subjects.find((subject) => String(subject.subject_id) === selectedSubjectId)
+      ?.subject_name;
+  }, [subjects, selectedSubjectId]);
+
+  const canInteract = useMemo(() => {
+    return !!selectedSubjectId && !!selectedClass && !!selectedSemester && !busy;
+  }, [busy, selectedClass, selectedSemester, selectedSubjectId]);
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
@@ -43,14 +113,17 @@ export default function Marks() {
   }, [api]);
 
   const loadMarks = useCallback(
-    async (studentId) => {
-      setAlert(null);
-      const data = await api(`/marks?student_id=${encodeURIComponent(studentId)}`);
+    async (subjectId) => {
+      if (!subjectId) {
+        setMarksByStudent({});
+        return;
+      }
+      const data = await api(`/marks?subject_id=${encodeURIComponent(subjectId)}`);
       const map = {};
       for (const item of Array.isArray(data) ? data : []) {
-        map[item.subject_id] = String(item.mark);
+        map[item.student_id] = String(item.mark);
       }
-      setMarksBySubject(map);
+      setMarksByStudent(map);
     },
     [api]
   );
@@ -60,26 +133,39 @@ export default function Marks() {
   }, [loadInitial]);
 
   useEffect(() => {
-    if (currentStudentId === '') {
-      setMarksBySubject({});
+    if (!selectedSubjectId) {
+      setMarksByStudent({});
       return;
     }
 
-    loadMarks(currentStudentId).catch((err) => {
+    loadMarks(selectedSubjectId).catch((err) => {
       setAlert({ type: 'danger', message: err?.message || 'Failed to load marks' });
     });
-  }, [currentStudentId, loadMarks]);
+  }, [selectedSubjectId, loadMarks]);
 
   const onSave = useCallback(async () => {
     setAlert(null);
-    if (!currentStudentId) return;
-    if (subjects.length === 0) return;
+
+    if (!selectedSubjectId) {
+      setAlert({ type: 'warning', message: 'Select a subject before saving.' });
+      return;
+    }
+
+    if (!selectedClass || !selectedSemester) {
+      setAlert({ type: 'warning', message: 'Select a class and semester.' });
+      return;
+    }
+
+    if (filteredStudents.length === 0) {
+      setAlert({ type: 'warning', message: 'No students found for this class and semester.' });
+      return;
+    }
 
     const payloadMarks = [];
-    for (const sub of subjects) {
-      const raw = marksBySubject[sub.subject_id] ?? '';
+    for (const student of filteredStudents) {
+      const raw = marksByStudent[student.student_id] ?? '';
       if (raw === '') {
-        setAlert({ type: 'warning', message: 'Enter marks for all subjects before saving.' });
+        setAlert({ type: 'warning', message: 'Enter marks for all students before saving.' });
         return;
       }
       const value = Number(raw);
@@ -87,66 +173,109 @@ export default function Marks() {
         setAlert({ type: 'warning', message: 'Marks must be between 0 and 100.' });
         return;
       }
-      payloadMarks.push({ subject_id: sub.subject_id, mark: Math.trunc(value) });
+      payloadMarks.push({ student_id: student.student_id, mark: Math.trunc(value) });
     }
 
     setBusy(true);
     try {
       await api('/marks/bulk', {
         method: 'POST',
-        body: { student_id: Number(currentStudentId), marks: payloadMarks }
+        body: { subject_id: Number(selectedSubjectId), marks: payloadMarks }
       });
-      await loadMarks(currentStudentId);
+      await loadMarks(selectedSubjectId);
       setAlert({ type: 'success', message: 'Marks saved.' });
     } catch (err) {
       setAlert({ type: 'danger', message: err?.message || 'Save failed' });
     } finally {
       setBusy(false);
     }
-  }, [api, currentStudentId, loadMarks, marksBySubject, subjects]);
+  }, [api, filteredStudents, loadMarks, marksByStudent, selectedClass, selectedSemester, selectedSubjectId]);
 
   const onReload = useCallback(async () => {
-    if (!currentStudentId) return;
+    if (!selectedSubjectId) return;
     setBusy(true);
     setAlert(null);
     try {
-      await loadMarks(currentStudentId);
+      await loadMarks(selectedSubjectId);
       setAlert({ type: 'success', message: 'Marks reloaded.' });
     } catch (err) {
       setAlert({ type: 'danger', message: err?.message || 'Failed to reload marks' });
     } finally {
       setBusy(false);
     }
-  }, [currentStudentId, loadMarks]);
+  }, [loadMarks, selectedSubjectId]);
 
   return (
     <main className="container py-4">
       <div className="mb-3">
-        <h1 className="h4 mb-1">Mark Management</h1>
-        <div className="text-muted small">Enter marks per student per subject (0 - 100, PASS = 50)</div>
+        <h1 className="h4 mb-1">Mark Entry</h1>
+        <div className="text-muted small">
+          Select class, subject, and semester, then enter marks for each student.
+        </div>
+        {user?.teacher_name ? (
+          <div className="text-muted small">Teacher: {user.teacher_name}</div>
+        ) : null}
       </div>
 
       <div className="row g-3 align-items-end mb-3">
-        <div className="col-12 col-lg-6">
-          <label className="form-label" htmlFor="markStudentSelect">
-            Select Student
+        <div className="col-12 col-md-4">
+          <label className="form-label" htmlFor="markClassSelect">
+            Class
           </label>
           <select
             className="form-select"
-            id="markStudentSelect"
-            value={currentStudentId}
-            onChange={(e) => setCurrentStudentId(e.target.value)}
+            id="markClassSelect"
+            value={selectedClass}
+            onChange={(e) => setSelectedClass(e.target.value)}
             disabled={loading || busy}
           >
-            <option value="">Select...</option>
-            {students.map((s) => (
-              <option key={s.student_id} value={s.student_id}>
-                {s.student_name} (ID: {s.student_code ?? s.student_id})
+            <option value="">Select class...</option>
+            {classOptions.map((item) => (
+              <option key={item} value={item}>
+                {item}
               </option>
             ))}
           </select>
         </div>
-        <div className="col-12 col-lg-6 d-flex gap-2">
+        <div className="col-12 col-md-4">
+          <label className="form-label" htmlFor="markSubjectSelect">
+            Subject
+          </label>
+          <select
+            className="form-select"
+            id="markSubjectSelect"
+            value={selectedSubjectId}
+            onChange={(e) => setSelectedSubjectId(e.target.value)}
+            disabled={loading || busy}
+          >
+            <option value="">Select subject...</option>
+            {subjectOptions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-12 col-md-4">
+          <label className="form-label" htmlFor="markSemesterSelect">
+            Semester
+          </label>
+          <select
+            className="form-select"
+            id="markSemesterSelect"
+            value={selectedSemester}
+            onChange={(e) => setSelectedSemester(e.target.value)}
+            disabled={loading || busy}
+          >
+            <option value="">Select semester...</option>
+            {semesterOptions.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-12 d-flex gap-2">
           <button className="btn btn-primary" type="button" onClick={onSave} disabled={!canInteract}>
             Save Marks
           </button>
@@ -164,37 +293,59 @@ export default function Marks() {
       <Alert alert={alert} onClose={() => setAlert(null)} />
 
       <div className="card shadow-sm">
+        <div className="card-header bg-white d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div className="fw-semibold">
+            {selectedSubjectName ? `Subject: ${selectedSubjectName}` : 'Subject: -'}
+          </div>
+          <div className="text-muted small">
+            {selectedClass && selectedSemester
+              ? `Class ${selectedClass} | Semester ${selectedSemester}`
+              : 'Select class and semester'}
+          </div>
+        </div>
         <div className="table-responsive">
           <table className="table table-striped mb-0">
             <thead className="table-light">
               <tr>
-                <th style={{ width: 90 }}>ID</th>
-                <th>Subject</th>
+                <th style={{ width: 110 }}>Student ID</th>
+                <th>Student Name</th>
                 <th style={{ width: 160 }}>Mark</th>
-                <th style={{ width: 140 }}>Status</th>
+                <th style={{ width: 120 }}>Status</th>
               </tr>
             </thead>
             <tbody>
-              {!currentStudentId ? (
+              {loading ? (
                 <tr>
                   <td colSpan={4} className="text-center text-muted py-4">
-                    Select a student to enter marks.
+                    Loading...
                   </td>
                 </tr>
-              ) : subjects.length === 0 ? (
+              ) : !selectedSubjectId ? (
                 <tr>
                   <td colSpan={4} className="text-center text-muted py-4">
-                    No subjects available. Add subjects first.
+                    Select a subject to begin.
+                  </td>
+                </tr>
+              ) : !selectedClass || !selectedSemester ? (
+                <tr>
+                  <td colSpan={4} className="text-center text-muted py-4">
+                    Select a class and semester to view students.
+                  </td>
+                </tr>
+              ) : filteredStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="text-center text-muted py-4">
+                    No students found for this class and semester.
                   </td>
                 </tr>
               ) : (
-                subjects.map((sub) => {
-                  const value = marksBySubject[sub.subject_id] ?? '';
+                filteredStudents.map((student) => {
+                  const value = marksByStudent[student.student_id] ?? '';
                   const status = computeStatus(value);
                   return (
-                    <tr key={sub.subject_id}>
-                      <td>{sub.subject_id}</td>
-                      <td>{sub.subject_name}</td>
+                    <tr key={student.student_id}>
+                      <td>{student.student_code ?? student.student_id}</td>
+                      <td>{student.student_name}</td>
                       <td>
                         <input
                           type="number"
@@ -207,7 +358,10 @@ export default function Marks() {
                           required
                           disabled={!canInteract}
                           onChange={(e) =>
-                            setMarksBySubject((v) => ({ ...v, [sub.subject_id]: e.target.value }))
+                            setMarksByStudent((prev) => ({
+                              ...prev,
+                              [student.student_id]: e.target.value
+                            }))
                           }
                         />
                       </td>

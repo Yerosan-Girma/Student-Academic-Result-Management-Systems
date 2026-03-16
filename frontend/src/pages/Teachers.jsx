@@ -7,6 +7,8 @@ import { useApi } from '../hooks/useApi.js';
 const EMPTY_TEACHER = {
   teacher_id: null,
   teacher_name: '',
+  username: '',
+  password: '',
   department_id: '',
   assigned_class: '',
   role: 'Subject Teacher'
@@ -27,9 +29,11 @@ export default function Teachers() {
 
   const canSave = useMemo(() => {
     if (form.teacher_name.trim().length === 0) return false;
+    if (form.username.trim().length === 0) return false;
     if (!['Homeroom Teacher', 'Subject Teacher'].includes(form.role)) return false;
     if (!form.department_id) return false;
     if (form.role === 'Homeroom Teacher' && form.assigned_class.trim().length === 0) return false;
+    if (!form.teacher_id && form.password.trim().length === 0) return false;
     return true;
   }, [form]);
 
@@ -62,6 +66,8 @@ export default function Teachers() {
     setForm({
       teacher_id: teacher.teacher_id,
       teacher_name: teacher.teacher_name ?? '',
+      username: teacher.username ?? '',
+      password: '',
       department_id: teacher.department_id ?? '',
       assigned_class: teacher.assigned_class ?? '',
       role: teacher.role ?? 'Subject Teacher'
@@ -92,10 +98,15 @@ export default function Teachers() {
 
     const payload = {
       teacher_name: form.teacher_name,
+      username: form.username,
       department_id: form.department_id || null,
       role: form.role,
       assigned_class: form.assigned_class
     };
+
+    if (form.password.trim().length > 0) {
+      payload.password = form.password;
+    }
 
     try {
       if (form.teacher_id) {
@@ -136,6 +147,7 @@ export default function Teachers() {
               <tr>
                 <th style={{ width: 90 }}>ID</th>
                 <th>Name</th>
+                <th style={{ width: 180 }}>Username</th>
                 <th style={{ width: 180 }}>Department</th>
                 <th style={{ width: 160 }}>Assigned Class</th>
                 <th style={{ width: 180 }}>Role</th>
@@ -145,13 +157,13 @@ export default function Teachers() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-muted py-4">
+                  <td colSpan={7} className="text-center text-muted py-4">
                     Loading...
                   </td>
                 </tr>
               ) : teachers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-muted py-4">
+                  <td colSpan={7} className="text-center text-muted py-4">
                     No teachers found.
                   </td>
                 </tr>
@@ -160,6 +172,7 @@ export default function Teachers() {
                   <tr key={t.teacher_id}>
                     <td>{t.teacher_id}</td>
                     <td>{t.teacher_name}</td>
+                    <td>{t.username ?? ''}</td>
                     <td>{t.department_name ?? ''}</td>
                     <td>{t.assigned_class ?? ''}</td>
                     <td>{t.role}</td>
@@ -220,6 +233,33 @@ export default function Teachers() {
             required
             value={form.teacher_name}
             onChange={(e) => setForm((v) => ({ ...v, teacher_name: e.target.value }))}
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label" htmlFor="teacherUsername">
+            Username
+          </label>
+          <input
+            className="form-control"
+            id="teacherUsername"
+            required
+            value={form.username}
+            onChange={(e) => setForm((v) => ({ ...v, username: e.target.value }))}
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label" htmlFor="teacherPassword">
+            Password {form.teacher_id ? '(optional)' : ''}
+          </label>
+          <input
+            type="password"
+            className="form-control"
+            id="teacherPassword"
+            placeholder={form.teacher_id ? 'Leave blank to keep current password' : 'Set a password'}
+            value={form.password}
+            onChange={(e) => setForm((v) => ({ ...v, password: e.target.value }))}
           />
         </div>
 

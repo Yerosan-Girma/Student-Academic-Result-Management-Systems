@@ -13,7 +13,7 @@ const subjectRoutes = require('./routes/subjectRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const markRoutes = require('./routes/markRoutes');
 const reportRoutes = require('./routes/reportRoutes');
-const { ensureDefaultAdmin } = require('./controllers/authController');
+const { ensureDefaultAdmin, ensureSampleTeacherLogins } = require('./controllers/authController');
 
 const app = express();
 
@@ -83,8 +83,11 @@ app.use((err, req, res, next) => {
 
 const port = Number(process.env.PORT) || 3000;
 
-ensureDefaultAdmin().finally(() => {
-  app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+Promise.resolve()
+  .then(() => ensureDefaultAdmin())
+  .then(() => ensureSampleTeacherLogins())
+  .finally(() => {
+    app.listen(port, () => {
+      console.log(`Server running at http://localhost:${port}`);
+    });
   });
-});
