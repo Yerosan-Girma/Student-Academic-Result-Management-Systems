@@ -63,22 +63,34 @@ export default function Marks() {
   }, [subjects]);
 
   useEffect(() => {
-    if (!selectedClass && classOptions.length > 0) {
-      setSelectedClass(classOptions[0]);
+    if (classOptions.length === 0) {
+      setSelectedClass('');
+      return;
     }
-  }, [classOptions, selectedClass]);
+    setSelectedClass((prev) => (prev && classOptions.includes(prev) ? prev : classOptions[0]));
+  }, [classOptions]);
 
   useEffect(() => {
-    if (!selectedSemester && semesterOptions.length > 0) {
-      setSelectedSemester(semesterOptions[0]);
+    if (semesterOptions.length === 0) {
+      setSelectedSemester('');
+      return;
     }
-  }, [semesterOptions, selectedSemester]);
+    setSelectedSemester((prev) =>
+      prev && semesterOptions.includes(prev) ? prev : semesterOptions[0]
+    );
+  }, [semesterOptions]);
 
   useEffect(() => {
-    if (!selectedSubjectId && subjectOptions.length > 0) {
-      setSelectedSubjectId(subjectOptions[0].id);
+    if (subjectOptions.length === 0) {
+      setSelectedSubjectId('');
+      return;
     }
-  }, [subjectOptions, selectedSubjectId]);
+    setSelectedSubjectId((prev) => {
+      if (!prev) return subjectOptions[0].id;
+      const exists = subjectOptions.some((opt) => opt.id === prev);
+      return exists ? prev : subjectOptions[0].id;
+    });
+  }, [subjectOptions]);
 
   const filteredStudents = useMemo(() => {
     if (!selectedClass || !selectedSemester) return [];
@@ -97,6 +109,11 @@ export default function Marks() {
   const canInteract = useMemo(() => {
     return !!selectedSubjectId && !!selectedClass && !!selectedSemester && !busy;
   }, [busy, selectedClass, selectedSemester, selectedSubjectId]);
+
+  const canRefresh = useMemo(() => !loading && !busy, [loading, busy]);
+
+  const noSubjectsAssigned =
+    !loading && subjectOptions.length === 0 && user?.role === 'Subject Teacher';
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
@@ -192,18 +209,20 @@ export default function Marks() {
   }, [api, filteredStudents, loadMarks, marksByStudent, selectedClass, selectedSemester, selectedSubjectId]);
 
   const onReload = useCallback(async () => {
-    if (!selectedSubjectId) return;
-    setBusy(true);
     setAlert(null);
+    setBusy(true);
     try {
-      await loadMarks(selectedSubjectId);
-      setAlert({ type: 'success', message: 'Marks reloaded.' });
+      await loadInitial();
+      if (selectedSubjectId) {
+        await loadMarks(selectedSubjectId);
+      }
+      setAlert({ type: 'success', message: 'Data refreshed.' });
     } catch (err) {
-      setAlert({ type: 'danger', message: err?.message || 'Failed to reload marks' });
+      setAlert({ type: 'danger', message: err?.message || 'Failed to refresh data' });
     } finally {
       setBusy(false);
     }
-  }, [loadMarks, selectedSubjectId]);
+  }, [loadInitial, loadMarks, selectedSubjectId]);
 
   return (
     <main className="container py-4">
@@ -216,6 +235,13 @@ export default function Marks() {
           <div className="text-muted small">Teacher: {user.teacher_name}</div>
         ) : null}
       </div>
+
+      {noSubjectsAssigned ? (
+        <div className="alert alert-warning" role="alert">
+          No subjects are assigned to your account yet. Ask the admin to assign a subject in
+          the Subject Management page.
+        </div>
+      ) : null}
 
       <div className="row g-3 align-items-end mb-3">
         <div className="col-12 col-md-4">
@@ -283,9 +309,9 @@ export default function Marks() {
             className="btn btn-outline-secondary"
             type="button"
             onClick={onReload}
-            disabled={!canInteract}
+            disabled={!canRefresh}
           >
-            Reload
+            Refresh Data
           </button>
         </div>
       </div>

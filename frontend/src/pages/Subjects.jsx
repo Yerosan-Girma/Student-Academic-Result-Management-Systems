@@ -52,7 +52,9 @@ export default function Subjects() {
     : null;
   const eligibleTeachers = useMemo(() => {
     if (!selectedDepartmentId) return [];
-    return teachers.filter((t) => Number(t.department_id) === selectedDepartmentId);
+    return teachers.filter(
+      (t) => Number(t.department_id) === selectedDepartmentId && t.role === 'Subject Teacher'
+    );
   }, [selectedDepartmentId, teachers]);
 
   const loadAll = useCallback(async () => {
@@ -480,7 +482,9 @@ export default function Subjects() {
               </option>
             ))}
           </select>
-          <div className="form-text">Teachers are filtered by the selected department.</div>
+          <div className="form-text">
+            Only Subject Teachers from the selected department are shown.
+          </div>
         </div>
 
         <div className="mb-0">

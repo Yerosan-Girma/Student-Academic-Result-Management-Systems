@@ -318,7 +318,7 @@ export default function Reports() {
                             <td>{r.student.student_code ?? r.student.student_id}</td>
                             {subjects.map((sub) => {
                               const mark = marksBySubject.get(sub.subject_id);
-                              const missing = mark === null || mark === undefined;
+                              const missing = mark === null || mark === undefined || mark === '';
                               const markText = missing ? '-' : String(mark);
                               const markClass = missing
                                 ? 'mark-missing'

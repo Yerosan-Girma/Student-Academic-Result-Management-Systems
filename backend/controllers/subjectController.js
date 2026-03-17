@@ -56,6 +56,11 @@ async function createSubject(req, res, next) {
       if (!teacher) {
         return res.status(400).json({ error: 'Teacher not found' });
       }
+      if (teacher.role !== 'Subject Teacher') {
+        return res.status(400).json({
+          error: 'Only Subject Teachers can be assigned to a subject'
+        });
+      }
       if (teacher.department_id !== deptId) {
         return res.status(400).json({
           error: 'Teacher must belong to the same department as the subject'
@@ -109,6 +114,11 @@ async function updateSubject(req, res, next) {
       const teacher = await Teacher.getById(teacherId);
       if (!teacher) {
         return res.status(400).json({ error: 'Teacher not found' });
+      }
+      if (teacher.role !== 'Subject Teacher') {
+        return res.status(400).json({
+          error: 'Only Subject Teachers can be assigned to a subject'
+        });
       }
       if (teacher.department_id !== deptId) {
         return res.status(400).json({
