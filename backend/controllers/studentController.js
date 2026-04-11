@@ -1,4 +1,5 @@
 const Student = require('../models/Student');
+const SchoolClass = require('../models/Class');
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -14,8 +15,18 @@ function parsePositiveInt(value) {
   return num;
 }
 
+function parseNullablePositiveInt(value) {
+  if (value === null || value === undefined || value === '') return null;
+  return parsePositiveInt(value);
+}
+
 async function getAllStudents(req, res, next) {
   try {
+    const classId = parseNullablePositiveInt(req.query?.class_id);
+    if (req.query?.class_id !== undefined && req.query?.class_id !== '' && !classId) {
+      return res.status(400).json({ error: 'Invalid class id' });
+    }
+
     const grade = isNonEmptyString(req.query?.grade) ? req.query.grade.trim() : null;
     const academicYear = isNonEmptyString(req.query?.academic_year)
       ? req.query.academic_year.trim()
@@ -23,6 +34,7 @@ async function getAllStudents(req, res, next) {
     const semester = isNonEmptyString(req.query?.semester) ? req.query.semester.trim() : null;
 
     const students = await Student.list({
+      class_id: classId,
       grade,
       academic_year: academicYear,
       semester
@@ -49,15 +61,27 @@ async function getStudentById(req, res, next) {
 
 async function createStudent(req, res, next) {
   try {
-    const { student_name, gender, grade, academic_year, semester } = req.body ?? {};
+    const { student_name, gender, grade, academic_year, semester, class_id } = req.body ?? {};
     if (!isNonEmptyString(student_name)) {
       return res.status(400).json({ error: 'Student_Name is required' });
     }
     if (!isAllowedGender(gender)) {
       return res.status(400).json({ error: 'Gender must be Male, Female, or Other' });
     }
-    if (!isNonEmptyString(grade)) {
-      return res.status(400).json({ error: 'Grade is required' });
+
+    const classId = parseNullablePositiveInt(class_id);
+    let className = isNonEmptyString(grade) ? grade.trim() : null;
+
+    if (classId) {
+      const schoolClass = await SchoolClass.getById(classId);
+      if (!schoolClass) {
+        return res.status(400).json({ error: 'Class not found' });
+      }
+      className = schoolClass.class_name;
+    }
+
+    if (!isNonEmptyString(className)) {
+      return res.status(400).json({ error: 'Class is required' });
     }
     if (!isNonEmptyString(academic_year)) {
       return res.status(400).json({ error: 'Academic_Year is required' });
@@ -69,7 +93,8 @@ async function createStudent(req, res, next) {
     const studentId = await Student.create({
       student_name: student_name.trim(),
       gender,
-      grade: grade.trim(),
+      grade: className,
+      class_id: classId,
       academic_year: academic_year.trim(),
       semester: semester.trim()
     });
@@ -86,15 +111,27 @@ async function updateStudent(req, res, next) {
     const studentId = parsePositiveInt(req.params.id);
     if (!studentId) return res.status(400).json({ error: 'Invalid student id' });
 
-    const { student_name, gender, grade, academic_year, semester } = req.body ?? {};
+    const { student_name, gender, grade, academic_year, semester, class_id } = req.body ?? {};
     if (!isNonEmptyString(student_name)) {
       return res.status(400).json({ error: 'Student_Name is required' });
     }
     if (!isAllowedGender(gender)) {
       return res.status(400).json({ error: 'Gender must be Male, Female, or Other' });
     }
-    if (!isNonEmptyString(grade)) {
-      return res.status(400).json({ error: 'Grade is required' });
+
+    const classId = parseNullablePositiveInt(class_id);
+    let className = isNonEmptyString(grade) ? grade.trim() : null;
+
+    if (classId) {
+      const schoolClass = await SchoolClass.getById(classId);
+      if (!schoolClass) {
+        return res.status(400).json({ error: 'Class not found' });
+      }
+      className = schoolClass.class_name;
+    }
+
+    if (!isNonEmptyString(className)) {
+      return res.status(400).json({ error: 'Class is required' });
     }
     if (!isNonEmptyString(academic_year)) {
       return res.status(400).json({ error: 'Academic_Year is required' });
@@ -106,7 +143,8 @@ async function updateStudent(req, res, next) {
     const affected = await Student.update(studentId, {
       student_name: student_name.trim(),
       gender,
-      grade: grade.trim(),
+      grade: className,
+      class_id: classId,
       academic_year: academic_year.trim(),
       semester: semester.trim()
     });

@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const SchoolClass = require('../models/Class');
 const { isStudentEligibleForSubject } = require('../utils/yearUtils');
 
 function parsePositiveInt(value) {
@@ -35,19 +36,30 @@ async function buildReports({ classFilter = null } = {}) {
      ORDER BY subject_id ASC`
   );
 
-  const studentWhere = classFilter ? 'WHERE grade = ?' : '';
+  const studentWhere = classFilter ? 'WHERE COALESCE(c.class_name, s.grade) = ?' : '';
   const studentParams = classFilter ? [classFilter] : [];
   const [students] = await pool.execute(
-    `SELECT student_id, student_name, gender, grade, academic_year, semester
-     FROM students
+    `SELECT
+        s.student_id,
+        s.student_name,
+        s.gender,
+        COALESCE(c.class_name, s.grade) AS grade,
+        s.academic_year,
+        s.semester
+     FROM students s
+     LEFT JOIN classes c ON c.class_id = s.class_id
      ${studentWhere}
-     ORDER BY student_id ASC`,
+     ORDER BY s.student_id ASC`,
     studentParams
   );
   const [marks] = await pool.execute(`SELECT student_id, subject_id, mark FROM marks`);
   const [homerooms] = await pool.execute(
-    `SELECT teacher_id, teacher_name, assigned_class
-     FROM teachers
+    `SELECT
+        t.teacher_id,
+        t.teacher_name,
+        COALESCE(c.class_name, t.assigned_class) AS assigned_class
+     FROM teachers t
+     LEFT JOIN classes c ON c.class_id = t.assigned_class_id
      WHERE role = 'Homeroom Teacher'`
   );
 
@@ -119,11 +131,23 @@ async function buildReports({ classFilter = null } = {}) {
   return { subjects: [...subjectsById.values()], reports: ranked };
 }
 
+async function resolveClassFilterForUser(user) {
+  if (user?.role !== 'Homeroom Teacher') return null;
+
+  const assignedClassId = Number(user?.assigned_class_id);
+  if (Number.isInteger(assignedClassId) && assignedClassId > 0) {
+    const schoolClass = await SchoolClass.getById(assignedClassId);
+    return schoolClass?.class_name ?? null;
+  }
+
+  const assignedClass = typeof user?.assigned_class === 'string' ? user.assigned_class.trim() : '';
+  return assignedClass || null;
+}
+
 async function getReports(req, res, next) {
   try {
     const user = req.session?.user ?? null;
-    const classFilter =
-      user?.role === 'Homeroom Teacher' ? (user.assigned_class ?? null) : null;
+    const classFilter = await resolveClassFilterForUser(user);
 
     if (user?.role === 'Homeroom Teacher' && !classFilter) {
       const [subjects] = await pool.execute(
@@ -147,8 +171,7 @@ async function getReportByStudent(req, res, next) {
     if (!studentId) return res.status(400).json({ error: 'Invalid student id' });
 
     const user = req.session?.user ?? null;
-    const classFilter =
-      user?.role === 'Homeroom Teacher' ? (user.assigned_class ?? null) : null;
+    const classFilter = await resolveClassFilterForUser(user);
 
     if (user?.role === 'Homeroom Teacher' && !classFilter) {
       return res.status(404).json({ error: 'Student not found' });

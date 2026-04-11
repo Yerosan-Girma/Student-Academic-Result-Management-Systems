@@ -17,6 +17,7 @@ const EMPTY_TEACHER = {
 export default function Teachers() {
   const api = useApi();
 
+  const [classes, setClasses] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +42,12 @@ export default function Teachers() {
     setLoading(true);
     setPageAlert(null);
     try {
-      const [depts, teach] = await Promise.all([api('/departments'), api('/teachers')]);
+      const [classData, depts, teach] = await Promise.all([
+        api('/classes'),
+        api('/departments'),
+        api('/teachers')
+      ]);
+      setClasses(Array.isArray(classData) ? classData : []);
       setDepartments(Array.isArray(depts) ? depts : []);
       setTeachers(Array.isArray(teach) ? teach : []);
     } catch (err) {
@@ -130,7 +136,7 @@ export default function Teachers() {
         <div>
           <h1 className="h4 mb-1">Teacher Management</h1>
           <div className="text-muted small">
-            Register teachers and assign department / class / role
+            Register teachers and assign department, class, and role
           </div>
         </div>
         <button className="btn btn-primary" type="button" onClick={openCreate}>
@@ -309,10 +315,17 @@ export default function Teachers() {
           <input
             className="form-control"
             id="assignedClass"
-            placeholder="e.g., Grade 10-A"
+            list="teacherClassOptions"
+            placeholder="e.g., 9A"
             value={form.assigned_class}
             onChange={(e) => setForm((v) => ({ ...v, assigned_class: e.target.value }))}
           />
+          <datalist id="teacherClassOptions">
+            {classes.map((schoolClass) => (
+              <option key={schoolClass.class_id} value={schoolClass.class_name} />
+            ))}
+          </datalist>
+          <div className="form-text">Choose an existing class or type a new one.</div>
         </div>
       </Modal>
     </main>

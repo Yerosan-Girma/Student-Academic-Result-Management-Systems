@@ -1,4 +1,21 @@
 const pool = require('../config/db');
+const SchoolClass = require('./Class');
+
+async function resolveAssignedClassRecord({
+  assigned_class_id = null,
+  assigned_class = null
+} = {}) {
+  if (assigned_class_id) {
+    const schoolClass = await SchoolClass.getById(assigned_class_id);
+    if (schoolClass) return schoolClass;
+  }
+
+  const normalizedAssignedClass =
+    typeof assigned_class === 'string' ? assigned_class.trim() : '';
+  if (!normalizedAssignedClass) return null;
+
+  return SchoolClass.ensureByName(normalizedAssignedClass);
+}
 
 async function list() {
   const [rows] = await pool.execute(
@@ -7,11 +24,13 @@ async function list() {
         t.teacher_name,
         t.department_id,
         d.department_name,
-        t.assigned_class,
+        COALESCE(c.class_name, t.assigned_class) AS assigned_class,
+        COALESCE(t.assigned_class_id, c.class_id) AS assigned_class_id,
         t.role,
         t.username
      FROM teachers t
      LEFT JOIN departments d ON d.department_id = t.department_id
+     LEFT JOIN classes c ON c.class_id = t.assigned_class_id
      ORDER BY t.teacher_id DESC`
   );
   return rows;
@@ -19,9 +38,17 @@ async function list() {
 
 async function getById(teacherId) {
   const [rows] = await pool.execute(
-    `SELECT teacher_id, teacher_name, department_id, assigned_class, role, username
-     FROM teachers
-     WHERE teacher_id = ?`,
+    `SELECT
+        t.teacher_id,
+        t.teacher_name,
+        t.department_id,
+        COALESCE(c.class_name, t.assigned_class) AS assigned_class,
+        COALESCE(t.assigned_class_id, c.class_id) AS assigned_class_id,
+        t.role,
+        t.username
+     FROM teachers t
+     LEFT JOIN classes c ON c.class_id = t.assigned_class_id
+     WHERE t.teacher_id = ?`,
     [teacherId]
   );
   return rows[0] ?? null;
@@ -29,9 +56,18 @@ async function getById(teacherId) {
 
 async function findByUsername(username) {
   const [rows] = await pool.execute(
-    `SELECT teacher_id, teacher_name, department_id, assigned_class, role, username, password_hash
-     FROM teachers
-     WHERE username = ?`,
+    `SELECT
+        t.teacher_id,
+        t.teacher_name,
+        t.department_id,
+        COALESCE(c.class_name, t.assigned_class) AS assigned_class,
+        COALESCE(t.assigned_class_id, c.class_id) AS assigned_class_id,
+        t.role,
+        t.username,
+        t.password_hash
+     FROM teachers t
+     LEFT JOIN classes c ON c.class_id = t.assigned_class_id
+     WHERE t.username = ?`,
     [username]
   );
   return rows[0] ?? null;
@@ -45,7 +81,7 @@ async function findHomeroomConflict({ assigned_class, teacher_id = null }) {
     `SELECT teacher_id, teacher_name, assigned_class
      FROM teachers
      WHERE role = 'Homeroom Teacher'
-       AND assigned_class = ?`;
+       AND TRIM(assigned_class) = ?`;
 
   if (teacher_id) {
     sql += ' AND teacher_id <> ?';
@@ -57,13 +93,27 @@ async function findHomeroomConflict({ assigned_class, teacher_id = null }) {
 }
 
 async function create(teacher) {
+  const schoolClass = await resolveAssignedClassRecord({
+    assigned_class_id: teacher.assigned_class_id ?? null,
+    assigned_class: teacher.assigned_class ?? null
+  });
+
   const [result] = await pool.execute(
-    `INSERT INTO teachers (teacher_name, department_id, assigned_class, role, username, password_hash)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO teachers (
+       teacher_name,
+       department_id,
+       assigned_class,
+       assigned_class_id,
+       role,
+       username,
+       password_hash
+     )
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       teacher.teacher_name,
       teacher.department_id ?? null,
-      teacher.assigned_class ?? null,
+      schoolClass?.class_name ?? null,
+      schoolClass?.class_id ?? null,
       teacher.role,
       teacher.username ?? null,
       teacher.password_hash ?? null
@@ -73,15 +123,21 @@ async function create(teacher) {
 }
 
 async function update(teacherId, teacher) {
+  const schoolClass = await resolveAssignedClassRecord({
+    assigned_class_id: teacher.assigned_class_id ?? null,
+    assigned_class: teacher.assigned_class ?? null
+  });
+
   const [result] = await pool.execute(
     `UPDATE teachers
-     SET teacher_name = ?, department_id = ?, assigned_class = ?, role = ?, username = ?,
+     SET teacher_name = ?, department_id = ?, assigned_class = ?, assigned_class_id = ?, role = ?, username = ?,
          password_hash = COALESCE(?, password_hash)
      WHERE teacher_id = ?`,
     [
       teacher.teacher_name,
       teacher.department_id ?? null,
-      teacher.assigned_class ?? null,
+      schoolClass?.class_name ?? null,
+      schoolClass?.class_id ?? null,
       teacher.role,
       teacher.username ?? null,
       teacher.password_hash ?? null,

@@ -46,6 +46,11 @@ export default function SamNavbar() {
             {role === 'Admin' ? (
               <>
                 <li className="nav-item">
+                  <NavLink className={navLinkClass} to="/classes" onClick={() => setOpen(false)}>
+                    Classes
+                  </NavLink>
+                </li>
+                <li className="nav-item">
                   <NavLink className={navLinkClass} to="/students" onClick={() => setOpen(false)}>
                     Students
                   </NavLink>

@@ -24,16 +24,33 @@ CREATE TABLE IF NOT EXISTS admins (
   UNIQUE KEY uq_admins_username (username)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS classes (
+  class_id INT NOT NULL AUTO_INCREMENT,
+  class_name VARCHAR(50) NOT NULL,
+  description VARCHAR(255) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (class_id),
+  UNIQUE KEY uq_classes_name (class_name)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS students (
   student_id INT NOT NULL AUTO_INCREMENT,
   student_name VARCHAR(150) NOT NULL,
   gender ENUM('Male','Female','Other') NOT NULL,
   grade VARCHAR(20) NOT NULL,
+  class_id INT NULL,
   academic_year VARCHAR(20) NOT NULL,
   semester VARCHAR(20) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (student_id)
+  PRIMARY KEY (student_id),
+  KEY idx_students_class (class_id),
+  CONSTRAINT fk_students_class
+    FOREIGN KEY (class_id)
+    REFERENCES classes (class_id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS teachers (
@@ -43,6 +60,7 @@ CREATE TABLE IF NOT EXISTS teachers (
   password_hash VARCHAR(255) NULL,
   department_id INT NOT NULL,
   assigned_class VARCHAR(50) NULL,
+  assigned_class_id INT NULL,
   role ENUM('Homeroom Teacher','Subject Teacher') NOT NULL DEFAULT 'Subject Teacher',
   homeroom_class VARCHAR(50)
     GENERATED ALWAYS AS (
@@ -55,10 +73,16 @@ CREATE TABLE IF NOT EXISTS teachers (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (teacher_id),
   KEY idx_teachers_department (department_id),
+  KEY idx_teachers_assigned_class_id (assigned_class_id),
   UNIQUE KEY uq_teachers_username (username),
   UNIQUE KEY uq_homeroom_class (homeroom_class),
   CONSTRAINT chk_teacher_homeroom_class
     CHECK (role <> 'Homeroom Teacher' OR assigned_class IS NOT NULL),
+  CONSTRAINT fk_teachers_assigned_class
+    FOREIGN KEY (assigned_class_id)
+    REFERENCES classes (class_id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
   CONSTRAINT fk_teachers_department
     FOREIGN KEY (department_id)
     REFERENCES departments (department_id)

@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const Teacher = require('../models/Teacher');
+const SchoolClass = require('../models/Class');
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -37,7 +38,7 @@ async function getAllTeachers(req, res, next) {
 
 async function createTeacher(req, res, next) {
   try {
-    const { teacher_name, department_id, assigned_class, role, username, password } =
+    const { teacher_name, department_id, assigned_class, assigned_class_id, role, username, password } =
       req.body ?? {};
 
     const normalizedUsername = normalizeUsername(username);
@@ -61,7 +62,16 @@ async function createTeacher(req, res, next) {
     if (!deptId) {
       return res.status(400).json({ error: 'Department is required' });
     }
-    const assignedClass = isNonEmptyString(assigned_class) ? assigned_class.trim() : null;
+    const assignedClassId = parseNullablePositiveInt(assigned_class_id);
+    let assignedClass = isNonEmptyString(assigned_class) ? assigned_class.trim() : null;
+
+    if (assignedClassId) {
+      const schoolClass = await SchoolClass.getById(assignedClassId);
+      if (!schoolClass) {
+        return res.status(400).json({ error: 'Class not found' });
+      }
+      assignedClass = schoolClass.class_name;
+    }
 
     if (role === 'Homeroom Teacher' && !assignedClass) {
       return res
@@ -84,6 +94,7 @@ async function createTeacher(req, res, next) {
       teacher_name: teacher_name.trim(),
       department_id: deptId,
       assigned_class: assignedClass,
+      assigned_class_id: assignedClassId,
       role,
       username: normalizedUsername,
       password_hash: passwordHash
@@ -112,7 +123,7 @@ async function updateTeacher(req, res, next) {
     const teacherId = parsePositiveInt(req.params.id);
     if (!teacherId) return res.status(400).json({ error: 'Invalid teacher id' });
 
-    const { teacher_name, department_id, assigned_class, role, username, password } =
+    const { teacher_name, department_id, assigned_class, assigned_class_id, role, username, password } =
       req.body ?? {};
 
     const normalizedUsername = normalizeUsername(username);
@@ -133,7 +144,16 @@ async function updateTeacher(req, res, next) {
     if (!deptId) {
       return res.status(400).json({ error: 'Department is required' });
     }
-    const assignedClass = isNonEmptyString(assigned_class) ? assigned_class.trim() : null;
+    const assignedClassId = parseNullablePositiveInt(assigned_class_id);
+    let assignedClass = isNonEmptyString(assigned_class) ? assigned_class.trim() : null;
+
+    if (assignedClassId) {
+      const schoolClass = await SchoolClass.getById(assignedClassId);
+      if (!schoolClass) {
+        return res.status(400).json({ error: 'Class not found' });
+      }
+      assignedClass = schoolClass.class_name;
+    }
 
     if (role === 'Homeroom Teacher' && !assignedClass) {
       return res
@@ -159,6 +179,7 @@ async function updateTeacher(req, res, next) {
       teacher_name: teacher_name.trim(),
       department_id: deptId,
       assigned_class: assignedClass,
+      assigned_class_id: assignedClassId,
       role,
       username: normalizedUsername,
       password_hash: passwordHash

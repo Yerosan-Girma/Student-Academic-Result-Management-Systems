@@ -7,12 +7,14 @@ const cors = require('cors');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const authRoutes = require('./routes/authRoutes');
+const classRoutes = require('./routes/classRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const markRoutes = require('./routes/markRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const SchoolClass = require('./models/Class');
 const { ensureDefaultAdmin, ensureSampleTeacherLogins } = require('./controllers/authController');
 
 const app = express();
@@ -46,6 +48,7 @@ app.use(
 );
 
 app.use('/api/auth', authRoutes);
+app.use('/api/classes', classRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/subjects', subjectRoutes);
@@ -84,6 +87,7 @@ app.use((err, req, res, next) => {
 const port = Number(process.env.PORT) || 3000;
 
 Promise.resolve()
+  .then(() => SchoolClass.ensureSchema())
   .then(() => ensureDefaultAdmin())
   .then(() => ensureSampleTeacherLogins())
   .finally(() => {

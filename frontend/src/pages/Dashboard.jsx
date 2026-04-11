@@ -94,7 +94,9 @@ export default function Dashboard() {
       <div className="d-flex align-items-center justify-content-between mb-3 dashboard-head">
         <div>
           <h1 className="h4 mb-1">Dashboard</h1>
-          <div className="text-muted small">Manage students, subjects, teachers, and homeroom</div>
+          <div className="text-muted small">
+            Manage classes, students, subjects, teachers, and homeroom
+          </div>
         </div>
         <div className="text-muted small" id="adminLabel">
           {displayName ? `Logged in as: ${displayName}` : ''}
@@ -102,6 +104,16 @@ export default function Dashboard() {
       </div>
 
       <div className="row g-3">
+        <div className="col-12 col-md-6 col-lg-4">
+          <Link className="card-link" to="/classes">
+            <div className="card shadow-sm h-100 feature-tile">
+              <div className="card-body">
+                <div className="h5 mb-1">Classes</div>
+                <div className="text-muted">Manage the shared class master list</div>
+              </div>
+            </div>
+          </Link>
+        </div>
         <div className="col-12 col-md-6 col-lg-4">
           <Link className="card-link" to="/students">
             <div className="card shadow-sm h-100 feature-tile">

@@ -27,7 +27,7 @@ SET @teacher_hash = '$2b$10$replace_this_with_a_real_bcrypt_hash';
 
 -- CREATE: add a new department
 INSERT INTO departments (department_name)
-VALUES ('ICT');
+VALUES ('Maths');
 
 -- READ: list departments for the dropdown
 SELECT department_id, department_name
@@ -53,7 +53,7 @@ WHERE department_id = 1;
 
 -- UPDATE: rename a department
 UPDATE departments
-SET department_name = 'Computer Science'
+SET department_name = 'English'
 WHERE department_id = 1;
 
 -- DELETE PREVIEW: see whether the department is still in use
@@ -345,7 +345,6 @@ GROUP BY t.teacher_id, t.teacher_name;
 --   marks.teacher_id    -> NULL
 DELETE FROM teachers
 WHERE teacher_id = 1;
-
 
 -- =========================================================
 -- 5. SUBJECTS

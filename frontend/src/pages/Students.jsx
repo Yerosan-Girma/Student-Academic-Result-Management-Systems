@@ -16,6 +16,7 @@ const EMPTY_FORM = {
 export default function Students() {
   const api = useApi();
 
+  const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pageAlert, setPageAlert] = useState(null);
@@ -39,8 +40,9 @@ export default function Students() {
     setLoading(true);
     setPageAlert(null);
     try {
-      const data = await api('/students');
-      setStudents(Array.isArray(data) ? data : []);
+      const [studentData, classData] = await Promise.all([api('/students'), api('/classes')]);
+      setStudents(Array.isArray(studentData) ? studentData : []);
+      setClasses(Array.isArray(classData) ? classData : []);
     } catch (err) {
       setPageAlert({ type: 'danger', message: err?.message || 'Failed to load students' });
     } finally {
@@ -118,7 +120,7 @@ export default function Students() {
       <div className="d-flex align-items-center justify-content-between mb-3">
         <div>
           <h1 className="h4 mb-1">Student Management</h1>
-          <div className="text-muted small">Register and manage student records</div>
+          <div className="text-muted small">Register and manage student records by class</div>
         </div>
         <button className="btn btn-primary" type="button" onClick={openCreate}>
           Add Student
@@ -135,7 +137,7 @@ export default function Students() {
                 <th style={{ width: 140 }}>ID</th>
                 <th>Name</th>
                 <th style={{ width: 120 }}>Gender</th>
-                <th style={{ width: 120 }}>Grade</th>
+                <th style={{ width: 120 }}>Class</th>
                 <th style={{ width: 140 }}>Academic Year</th>
                 <th style={{ width: 120 }}>Semester</th>
                 <th style={{ width: 160 }}>Actions</th>
@@ -249,16 +251,23 @@ export default function Students() {
 
         <div className="mb-3">
           <label className="form-label" htmlFor="studentGrade">
-            Grade
+            Class
           </label>
           <input
             className="form-control"
             id="studentGrade"
+            list="studentClassOptions"
             required
-            placeholder="e.g., Grade 10"
+            placeholder="e.g., 9A"
             value={form.grade}
             onChange={(e) => setForm((v) => ({ ...v, grade: e.target.value }))}
           />
+          <datalist id="studentClassOptions">
+            {classes.map((schoolClass) => (
+              <option key={schoolClass.class_id} value={schoolClass.class_name} />
+            ))}
+          </datalist>
+          <div className="form-text">Choose an existing class or type a new one.</div>
         </div>
 
         <div className="mb-3">

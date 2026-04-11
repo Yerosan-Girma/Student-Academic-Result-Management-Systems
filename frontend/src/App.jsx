@@ -7,6 +7,7 @@ import RequireRole from './auth/RequireRole.jsx';
 import AppLayout from './components/AppLayout.jsx';
 
 import Dashboard from './pages/Dashboard.jsx';
+import Classes from './pages/Classes.jsx';
 import Login from './pages/Login.jsx';
 import Marks from './pages/Marks.jsx';
 import Reports from './pages/Reports.jsx';
@@ -25,6 +26,7 @@ export default function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route element={<RequireRole roles={['Admin']} />}>
+                <Route path="/classes" element={<Classes />} />
                 <Route path="/students" element={<Students />} />
                 <Route path="/subjects" element={<Subjects />} />
                 <Route path="/teachers" element={<Teachers />} />

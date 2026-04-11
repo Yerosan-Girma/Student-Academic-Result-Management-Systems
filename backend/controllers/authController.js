@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
+const SchoolClass = require('../models/Class');
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -102,8 +103,17 @@ async function login(req, res, next) {
     }
 
     const [teacherRows] = await pool.execute(
-      `SELECT teacher_id, teacher_name, role, username, password_hash, assigned_class, department_id
-       FROM teachers
+      `SELECT
+         t.teacher_id,
+         t.teacher_name,
+         t.role,
+         t.username,
+         t.password_hash,
+         COALESCE(c.class_name, t.assigned_class) AS assigned_class,
+         t.department_id,
+         COALESCE(t.assigned_class_id, c.class_id) AS assigned_class_id
+       FROM teachers t
+       LEFT JOIN classes c ON c.class_id = t.assigned_class_id
        WHERE username = ?`,
       [normalizedUsername]
     );
@@ -120,6 +130,7 @@ async function login(req, res, next) {
       teacher_name: teacher.teacher_name,
       role: teacher.role,
       assigned_class: teacher.assigned_class ?? null,
+      assigned_class_id: teacher.assigned_class_id ?? null,
       department_id: teacher.department_id ?? null
     };
     req.session.user = user;
@@ -129,9 +140,27 @@ async function login(req, res, next) {
   }
 }
 
-async function me(req, res) {
+async function me(req, res, next) {
   if (!req.session?.user) return res.status(401).json({ error: 'Unauthorized' });
-  return res.json(req.session.user);
+
+  try {
+    if (Number(req.session.user?.assigned_class_id) > 0) {
+      const schoolClass = await SchoolClass.getById(req.session.user.assigned_class_id);
+      if (schoolClass) {
+        req.session.user.assigned_class = schoolClass.class_name;
+      }
+    } else if (typeof req.session.user?.assigned_class === 'string') {
+      const schoolClass = await SchoolClass.getByName(req.session.user.assigned_class);
+      if (schoolClass) {
+        req.session.user.assigned_class_id = schoolClass.class_id;
+        req.session.user.assigned_class = schoolClass.class_name;
+      }
+    }
+
+    return res.json(req.session.user);
+  } catch (err) {
+    return next(err);
+  }
 }
 
 async function logout(req, res, next) {
