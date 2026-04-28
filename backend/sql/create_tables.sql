@@ -1,11 +1,11 @@
 -- Student Academic Record Management System (MySQL)
 -- Normalized schema (>= 3NF) with PK/FK relationships.
 
-CREATE DATABASE IF NOT EXISTS student_academic_management
+CREATE DATABASE IF NOT EXISTS student_academic_management_v2
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
-USE student_academic_management;
+USE student_academic_management_v2;
 -- Core lookup table (optional but recommended for 3NF)
 CREATE TABLE IF NOT EXISTS departments (
   department_id INT NOT NULL AUTO_INCREMENT,

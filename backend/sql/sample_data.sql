@@ -1,4 +1,4 @@
-USE student_academic_management;
+USE student_academic_management_v2;
 
 -- Default password for sample teachers: teacher123
 SET @teacher_hash = '$2b$10$j4BvY04l1vl4SdyAYzokKuCWwSQ4zFAMnR8CUKzIZfQPSHcs6/lG2';
