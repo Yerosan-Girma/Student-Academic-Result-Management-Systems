@@ -16,7 +16,9 @@ const pool = mysql.createPool({
   database: getEnv('DB_NAME', 'student_academic_management'),
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
 });
 
 async function testConnection() {
