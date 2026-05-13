@@ -1,532 +1,962 @@
--- Created by GitHub Copilot in SSMS - review carefully before executing
 -- ============================================================
--- CRUD OPERATIONS WITH 5 CONCEPTS APPLIED (T-SQL Version)
+-- CRUD OPERATIONS WITH 5 ADVANCED CONCEPTS APPLIED
+-- Student Academic Record Management System (MySQL)
+-- ============================================================
+-- This file demonstrates how every CRUD operation is simplified
+-- and enhanced by each of the 5 advanced SQL concepts already
+-- defined in: create_tables.sql / database_enhancements.sql
+--
+-- CONCEPT LEGEND:
+--   [VIEW]      -> vw_student_subject_marks, vw_student_summary,
+--                  vw_class_performance, vw_teacher_subject_assignment,
+--                  vw_department_performance
+--   [FUNCTION]  -> fn_calculate_total, fn_calculate_average,
+--                  fn_get_status, fn_get_subject_average, fn_get_class_average
+--   [PROCEDURE] -> sp_add_student, sp_insert_mark,
+--                  sp_update_mark, sp_get_student_report
+--   [TRIGGER]   -> trg_mark_insert_validation, trg_mark_update_validation,
+--                  trg_mark_update_timestamp, trg_mark_audit_log,
+--                  trg_mark_audit_log_update, trg_mark_audit_log_delete,
+--                  trg_teacher_homeroom_constraint
+--   [INDEX]     -> idx_marks_student_subject, idx_marks_student_mark,
+--                  idx_marks_subject_mark, idx_students_class,
+--                  idx_students_name, idx_subjects_name,
+--                  idx_teachers_name, idx_departments_name
 -- ============================================================
 
--- 1. DEPARTMENTS
+USE student_academic_management_v2;
+
+-- ============================================================
+-- SECTION 1: DEPARTMENTS CRUD
+-- ============================================================
+
+-- [INDEX] idx_departments_name speeds up all department queries below
 
 -- CREATE
-INSERT INTO departments(department_name) VALUES('Maths');
+INSERT INTO departments (department_name)
+VALUES ('Mathematics');
 
--- READ
+-- READ ALL (index on department_name speeds up ORDER BY)
 SELECT department_id, department_name
 FROM departments
 ORDER BY department_name ASC;
 
--- READ WITH COUNTS
-SELECT d.department_id, d.department_name,
-       COUNT(DISTINCT t.teacher_id) AS teacher_count,
-       COUNT(DISTINCT s.subject_id) AS subject_count
-FROM departments d
-LEFT JOIN teachers t ON t.department_id = d.department_id
-LEFT JOIN subjects s ON s.department_id = d.department_id
-GROUP BY d.department_id, d.department_name
-ORDER BY d.department_name ASC;
-
 -- READ BY ID
 SELECT department_id, department_name
 FROM departments
 WHERE department_id = 1;
 
+-- READ WITH TEACHER & SUBJECT COUNTS
+-- [VIEW] vw_department_performance simplifies this complex aggregation
+SELECT department_id, department_name, teacher_count, subject_count,
+       department_average, highest_mark, lowest_mark
+FROM vw_department_performance
+ORDER BY department_name ASC;
+
 -- UPDATE
 UPDATE departments
-SET department_name = 'English'
+SET department_name = 'Advanced Mathematics'
 WHERE department_id = 1;
 
--- DELETE PREVIEW
-SELECT d.department_id, d.department_name,
-       COUNT(DISTINCT t.teacher_id) AS teacher_count,
-       COUNT(DISTINCT s.subject_id) AS subject_count
-FROM departments d
-LEFT JOIN teachers t ON t.department_id = d.department_id
-LEFT JOIN subjects s ON s.department_id = d.department_id
-WHERE d.department_id = 1
-GROUP BY d.department_id, d.department_name;
-
--- DELETE SAFE
+-- DELETE (safe: only if no teachers or subjects reference it)
 DELETE FROM departments
 WHERE department_id = 1
-AND NOT EXISTS (SELECT 1 FROM teachers t WHERE t.department_id = departments.department_id)
-AND NOT EXISTS (SELECT 1 FROM subjects s WHERE s.department_id = departments.department_id);
+  AND NOT EXISTS (SELECT 1 FROM teachers t WHERE t.department_id = departments.department_id)
+  AND NOT EXISTS (SELECT 1 FROM subjects s WHERE s.department_id = departments.department_id);
 
--- 2. ADMINS
+-- ============================================================
+-- SECTION 2: CLASSES CRUD
+-- ============================================================
 
 -- CREATE
-INSERT INTO admins(username, password_hash)
-VALUES('admin1', @admin_hash);
+INSERT INTO classes (class_name, description)
+VALUES ('9A', 'Grade 9 Section A');
 
--- READ
-SELECT admin_id, username, password_hash
-FROM admins
-WHERE username = 'admin';
+-- READ ALL
+SELECT class_id, class_name, description, created_at
+FROM classes
+ORDER BY class_name ASC;
 
-SELECT admin_id, username, created_at
-FROM admins
-ORDER BY admin_id ASC;
+-- READ BY ID
+SELECT class_id, class_name, description
+FROM classes
+WHERE class_id = 1;
+
+-- READ CLASS WITH PERFORMANCE STATS
+-- [VIEW] vw_class_performance replaces a complex multi-join aggregation
+SELECT class_id, class_name, student_count,
+       class_average, highest_mark, lowest_mark
+FROM vw_class_performance
+WHERE class_id = 1;
+
+-- READ ALL CLASSES WITH PERFORMANCE
+-- [FUNCTION] fn_get_class_average used per class for flexible inline use
+SELECT c.class_id, c.class_name,
+       fn_get_class_average(c.class_id) AS class_average
+FROM classes c
+ORDER BY class_average DESC;
 
 -- UPDATE
-UPDATE admins
-SET password_hash = @admin_hash
-WHERE username = 'admin2';
+UPDATE classes
+SET class_name = '9B', description = 'Grade 9 Section B'
+WHERE class_id = 1;
 
--- DELETE
-DELETE FROM admins
-WHERE admin_id = 2 AND username <> 'admin';
+-- DELETE (safe: only if no students are in the class)
+DELETE FROM classes
+WHERE class_id = 1
+  AND NOT EXISTS (SELECT 1 FROM students s WHERE s.class_id = classes.class_id);
 
--- 3. STUDENTS
+-- ============================================================
+-- SECTION 3: STUDENTS CRUD
+-- ============================================================
 
--- CREATE
-INSERT INTO students(student_name, gender, grade, academic_year, semester)
-VALUES('Abel Tesfaye', 'Male', '9A', '2025/2026', '1');
+-- CREATE (plain INSERT)
+INSERT INTO students (student_name, gender, grade, class_id, academic_year, semester)
+VALUES ('Abel Tesfaye', 'Male', '9A', 1, '2025/2026', '1');
 
--- READ
+-- CREATE WITH VALIDATION
+-- [PROCEDURE] sp_add_student validates class existence and required fields
+CALL sp_add_student(
+    'Hana Girma',        -- p_student_name
+    'Female',            -- p_gender
+    '10A',               -- p_grade
+    1,                   -- p_class_id
+    '2025/2026',         -- p_academic_year
+    '1',                 -- p_semester
+    @new_student_id,     -- OUT: generated student_id
+    @result_code,        -- OUT: 0 = success, negative = error
+    @result_message      -- OUT: descriptive message
+);
+SELECT @new_student_id AS student_id, @result_code AS code, @result_message AS message;
+
+-- READ ALL STUDENTS
+-- [INDEX] idx_students_name speeds up ORDER BY student_name
 SELECT student_id, student_name, gender, grade, academic_year, semester
 FROM students
-ORDER BY student_id DESC;
+ORDER BY student_name ASC;
 
 -- READ BY ID
 SELECT student_id, student_name, gender, grade, academic_year, semester
-FROM students WHERE student_id = 1;
+FROM students
+WHERE student_id = 1;
 
--- READ BY GRADE
-SELECT student_id, student_name, gender, grade, academic_year, semester
-FROM students WHERE grade = '9A'
-ORDER BY student_id DESC;
-
--- READ BY ACADEMIC YEAR
-SELECT student_id, student_name, gender, grade, academic_year, semester
-FROM students WHERE academic_year = '2025/2026'
-ORDER BY student_id DESC;
-
--- READ BY SEMESTER
-SELECT student_id, student_name, gender, grade, academic_year, semester
-FROM students WHERE semester = '1'
-ORDER BY student_id DESC;
-
--- READ BY COMPOSITE FILTERS
+-- READ BY GRADE (index on class_id + name used)
 SELECT student_id, student_name, gender, grade, academic_year, semester
 FROM students
-WHERE grade = '9A' AND academic_year = '2025/2026' AND semester = '1'
-ORDER BY student_id DESC;
-
--- READ BY MULTIPLE IDs
-SELECT student_id, student_name, gender, grade, academic_year, semester
-FROM students WHERE student_id IN (1, 2, 3);
-
--- READ WITH ORDER BY NAME
-SELECT student_id, student_name, gender, grade, academic_year, semester
-FROM students
-WHERE grade = '9A' AND semester = '1'
+WHERE grade = '9A'
 ORDER BY student_name ASC;
 
--- UPDATE
-UPDATE students
-SET student_name = 'Abel T.', gender = 'Male', grade = '9A',
-    academic_year = '2025/2026', semester = '2'
+-- READ BY CLASS + YEAR + SEMESTER
+SELECT student_id, student_name, gender, grade, academic_year, semester
+FROM students
+WHERE class_id = 1
+  AND academic_year = '2025/2026'
+  AND semester = '1'
+ORDER BY student_name ASC;
+
+-- READ STUDENT MARKS (subject-level detail)
+-- [VIEW] vw_student_subject_marks replaces 3-table JOIN for per-student subject marks
+SELECT student_name, subject_name, mark, total_mark, percentage
+FROM vw_student_subject_marks
+WHERE student_id = 1
+ORDER BY subject_name ASC;
+
+-- READ STUDENT SUMMARY (total, average, rank, status)
+-- [VIEW] vw_student_summary provides computed rank and PASS/FAIL in one query
+-- NOTE: `rank` is a MySQL 8 reserved word — use backticks when selecting
+SELECT student_id, student_name, total_subjects,
+       total_marks, average_mark, `rank`, status
+FROM vw_student_summary
 WHERE student_id = 1;
 
+-- READ ALL STUDENTS RANKED
+-- [VIEW] vw_student_summary replaces complex window function query
+SELECT student_id, student_name, total_marks, average_mark, `rank`, status
+FROM vw_student_summary
+ORDER BY `rank` ASC;
+
+-- READ WITH COMPUTED MARKS INLINE
+-- [FUNCTION] fn_calculate_total, fn_calculate_average, fn_get_status
+SELECT s.student_id, s.student_name, s.grade,
+       fn_calculate_total(s.student_id)   AS total_marks,
+       fn_calculate_average(s.student_id) AS average_mark,
+       fn_get_status(s.student_id)        AS status
+FROM students s
+ORDER BY total_marks DESC;
+
+-- READ COMPREHENSIVE STUDENT REPORT
+-- [PROCEDURE] sp_get_student_report uses functions internally for clean output
+CALL sp_get_student_report(1);
+
+-- UPDATE STUDENT INFO
 UPDATE students
-SET grade = '10A', academic_year = '2026/2027', semester = '1'
+SET student_name  = 'Abel T. Tesfaye',
+    grade         = '9A',
+    academic_year = '2025/2026',
+    semester      = '2'
 WHERE student_id = 1;
 
--- UPDATE BULK
+-- UPDATE BULK SEMESTER PROMOTION
 UPDATE students
 SET semester = '2'
-WHERE grade = '9A' AND academic_year = '2025/2026' AND semester = '1';
+WHERE grade = '9A'
+  AND academic_year = '2025/2026'
+  AND semester = '1';
 
--- DELETE PREVIEW
-SELECT s.student_id, s.student_name,
-       COUNT(m.mark_id) AS marks_to_be_deleted
-FROM students s
-LEFT JOIN marks m ON m.student_id = s.student_id
-WHERE s.student_id = 1
-GROUP BY s.student_id, s.student_name;
+-- DELETE STUDENT (cascade deletes marks via FK constraint)
+DELETE FROM students
+WHERE student_id = 1;
 
--- DELETE
-DELETE FROM students WHERE student_id = 1;
+-- ============================================================
+-- SECTION 4: TEACHERS CRUD
+-- ============================================================
 
--- 4. TEACHERS
+-- [INDEX] idx_teachers_name speeds up teacher name searches
 
--- CREATE
-INSERT INTO teachers(teacher_name, department_id, assigned_class, role, username, password_hash)
-VALUES('Mr. Bekele',
- (SELECT TOP(1) department_id FROM departments WHERE department_name = 'Maths'),
- NULL, 'Subject Teacher', 'bekele', @teacher_hash);
+-- CREATE SUBJECT TEACHER
+INSERT INTO teachers (teacher_name, department_id, role, username, password_hash)
+VALUES ('Mr. Bekele', 1, 'Subject Teacher', 'bekele', 'hashed_password_here');
 
 -- CREATE HOMEROOM TEACHER
-INSERT INTO teachers(teacher_name, department_id, assigned_class, role, username, password_hash)
-VALUES('Ms. Hana',
- (SELECT TOP(1) department_id FROM departments WHERE department_name = 'English'),
- '9B', 'Homeroom Teacher', 'hana', @teacher_hash);
+-- [TRIGGER] trg_teacher_homeroom_constraint auto-enforces one homeroom per class
+INSERT INTO teachers (teacher_name, department_id, assigned_class, assigned_class_id, role, username, password_hash)
+VALUES ('Ms. Hana', 1, '9A', 1, 'Homeroom Teacher', 'hana', 'hashed_password_here');
 
--- READ
-SELECT t.teacher_id, t.teacher_name, t.department_id, d.department_name,
+-- READ ALL TEACHERS WITH DEPARTMENT
+SELECT t.teacher_id, t.teacher_name, d.department_name,
        t.assigned_class, t.role, t.username
 FROM teachers t
 LEFT JOIN departments d ON d.department_id = t.department_id
-ORDER BY t.teacher_id DESC;
+ORDER BY t.teacher_name ASC;
 
--- READ BY ID
-SELECT teacher_id, teacher_name, department_id, assigned_class, role, username
-FROM teachers WHERE teacher_id = 1;
+-- READ TEACHER WORKLOAD & GRADING STATS
+-- [VIEW] vw_teacher_subject_assignment replaces complex self-join aggregation
+SELECT teacher_id, teacher_name, subject_department,
+       subject_name, students_graded, average_mark_given
+FROM vw_teacher_subject_assignment
+WHERE teacher_id = 1;
 
--- READ BY USERNAME
-SELECT teacher_id, teacher_name, department_id, assigned_class, role, username, password_hash
-FROM teachers WHERE username = 'genet';
-
--- READ BY DEPARTMENT AND ROLE
-SELECT teacher_id, teacher_name, department_id, role
-FROM teachers
-WHERE department_id = (SELECT TOP(1) department_id FROM departments WHERE department_name = 'Maths')
-AND role = 'Subject Teacher'
+-- READ ALL TEACHERS WITH STATS
+SELECT teacher_id, teacher_name, subject_name,
+       students_graded, average_mark_given
+FROM vw_teacher_subject_assignment
 ORDER BY teacher_name ASC;
 
 -- READ HOMEROOM TEACHERS BY CLASS
 SELECT teacher_id, teacher_name, assigned_class
 FROM teachers
-WHERE role = 'Homeroom Teacher' AND assigned_class = '9B';
-
--- READ HOMEROOM TEACHERS BY CLASS EXCLUDING SPECIFIC
-SELECT teacher_id, teacher_name, assigned_class
-FROM teachers
 WHERE role = 'Homeroom Teacher'
-AND assigned_class = '9B'
-AND teacher_id <> 5;
+  AND assigned_class = '9A';
 
--- UPDATE
-DECLARE @new_teacher_hash VARBINARY(MAX) = NULL;
+-- READ BY USERNAME
+SELECT teacher_id, teacher_name, department_id, role, username
+FROM teachers
+WHERE username = 'bekele';
+
+-- UPDATE TEACHER INFO
+-- [TRIGGER] trg_teacher_homeroom_constraint fires on UPDATE to prevent duplicates
 UPDATE teachers
-SET teacher_name = 'Mr. Bekele T.',
-    department_id = (SELECT TOP(1) department_id FROM departments WHERE department_name = 'Maths'),
+SET teacher_name  = 'Mr. Bekele Tadesse',
+    department_id = 1,
+    role          = 'Subject Teacher',
     assigned_class = NULL,
-    role = 'Subject Teacher',
-    username = 'bekelet',
-    password_hash = COALESCE(@new_teacher_hash, password_hash)
+    assigned_class_id = NULL
 WHERE teacher_id = 1;
 
--- UPDATE HOMEROOM WITH CONFLICT CHECK
--- (T-SQL does not support UPDATE with JOIN directly; use MERGE or a CTE)
-;WITH conflict AS (
-    SELECT teacher_id
-    FROM teachers
-    WHERE role = 'Homeroom Teacher'
-      AND assigned_class = '10A'
-      AND teacher_id <> 1
-)
+-- UPDATE ASSIGN HOMEROOM ROLE
+-- [TRIGGER] trg_teacher_homeroom_constraint blocks if class already has homeroom
 UPDATE teachers
-SET role = 'Homeroom Teacher', assigned_class = '10A'
-WHERE teacher_id = 1 AND NOT EXISTS (SELECT 1 FROM conflict);
-
--- UPDATE REMOVE HOMEROOM
-UPDATE teachers
-SET role = 'Subject Teacher', assigned_class = NULL
+SET role              = 'Homeroom Teacher',
+    assigned_class    = '10A',
+    assigned_class_id = 2
 WHERE teacher_id = 1;
 
 -- UPDATE PASSWORD
 UPDATE teachers
-SET password_hash = @teacher_hash
-WHERE username = 'bekelet';
+SET password_hash = 'new_hashed_password_here'
+WHERE username = 'bekele';
 
--- DELETE PREVIEW
-SELECT t.teacher_id, t.teacher_name,
-       COUNT(DISTINCT s.subject_id) AS subjects_that_will_be_unassigned,
-       COUNT(DISTINCT m.mark_id) AS marks_that_will_lose_teacher_reference
-FROM teachers t
-LEFT JOIN subjects s ON s.teacher_id = t.teacher_id
-LEFT JOIN marks m ON m.teacher_id = t.teacher_id
-WHERE t.teacher_id = 1
-GROUP BY t.teacher_id, t.teacher_name;
+-- DELETE TEACHER
+DELETE FROM teachers
+WHERE teacher_id = 1;
 
--- DELETE
-DELETE FROM teachers WHERE teacher_id = 1;
+-- ============================================================
+-- SECTION 5: SUBJECTS CRUD
+-- ============================================================
 
--- 5. SUBJECTS
+-- [INDEX] idx_subjects_name speeds up subject name lookups
 
 -- CREATE
-INSERT INTO subjects(subject_name, department_id, teacher_id, start_year, total_mark)
-VALUES('Civics',
- (SELECT TOP(1) department_id FROM departments WHERE department_name = 'English'),
- NULL, NULL, 100);
+INSERT INTO subjects (subject_name, department_id, teacher_id, start_year, total_mark)
+VALUES ('Mathematics', 1, 1, 2024, 100);
 
--- CREATE WITH TEACHER ASSIGNMENT
-INSERT INTO subjects(subject_name, department_id, teacher_id, start_year, total_mark)
-SELECT TOP(1) 'Mathematics', d.department_id, t.teacher_id, 2024, 100
-FROM departments d
-JOIN teachers t ON t.department_id = d.department_id
-WHERE d.department_name = 'Maths'
-AND t.username = 'genet'
-AND t.role = 'Subject Teacher';
+-- CREATE WITHOUT TEACHER (unassigned)
+INSERT INTO subjects (subject_name, department_id, teacher_id, start_year, total_mark)
+VALUES ('Civics', 1, NULL, NULL, 100);
 
--- 6. MARKS
+-- READ ALL SUBJECTS WITH TEACHER & DEPARTMENT
+SELECT s.subject_id, s.subject_name, d.department_name,
+       t.teacher_name, s.start_year, s.total_mark
+FROM subjects s
+JOIN departments d ON d.department_id = s.department_id
+LEFT JOIN teachers t ON t.teacher_id = s.teacher_id
+ORDER BY s.subject_name ASC;
 
--- READ: all marks with joins
-SELECT m.mark_id, m.student_id, st.student_name,
-       m.subject_id, sb.subject_name,
-       m.teacher_id, t.teacher_name, m.mark
-FROM marks m
-JOIN students st ON st.student_id = m.student_id
-JOIN subjects sb ON sb.subject_id = m.subject_id
-LEFT JOIN teachers t ON t.teacher_id = m.teacher_id
-ORDER BY m.mark_id DESC;
+-- READ SUBJECT AVERAGE MARK
+-- [FUNCTION] fn_get_subject_average computes average without manual aggregation
+SELECT s.subject_id, s.subject_name,
+       fn_get_subject_average(s.subject_id) AS average_mark
+FROM subjects s
+ORDER BY average_mark DESC;
 
--- READ: marks for one student
-SELECT m.mark_id, m.student_id, st.student_name,
-       m.subject_id, sb.subject_name,
-       m.teacher_id, t.teacher_name, m.mark
-FROM marks m
-JOIN students st ON st.student_id = m.student_id
-JOIN subjects sb ON sb.subject_id = m.subject_id
-LEFT JOIN teachers t ON t.teacher_id = m.teacher_id
-WHERE m.student_id = 1
-ORDER BY sb.subject_name ASC;
+-- READ ALL SUBJECTS PER TEACHER (workload)
+-- [VIEW] vw_teacher_subject_assignment provides aggregated teacher workload
+SELECT teacher_name, subject_name, students_graded, average_mark_given
+FROM vw_teacher_subject_assignment
+ORDER BY teacher_name ASC, subject_name ASC;
 
--- READ: marks for one subject
-SELECT m.mark_id, m.student_id, st.student_name,
-       m.subject_id, sb.subject_name,
-       m.teacher_id, t.teacher_name, m.mark
-FROM marks m
-JOIN students st ON st.student_id = m.student_id
-JOIN subjects sb ON sb.subject_id = m.subject_id
-LEFT JOIN teachers t ON t.teacher_id = m.teacher_id
-WHERE m.subject_id = 1
-ORDER BY m.mark_id DESC;
-
--- READ: marks by teacher
-SELECT m.mark_id, m.student_id, st.student_name,
-       m.subject_id, sb.subject_name,
-       m.teacher_id, t.teacher_name, m.mark
-FROM marks m
-JOIN students st ON st.student_id = m.student_id
-JOIN subjects sb ON sb.subject_id = m.subject_id
-LEFT JOIN teachers t ON t.teacher_id = m.teacher_id
-WHERE m.teacher_id = 1
-ORDER BY m.mark_id DESC;
-
-
-
--- CHECK subject-teacher authorization
-SELECT subject_id
+-- READ BY ID
+SELECT subject_id, subject_name, department_id, teacher_id, start_year, total_mark
 FROM subjects
-WHERE subject_id = 1 AND teacher_id = 1;
+WHERE subject_id = 1;
 
--- CHECK student eligibility
-SELECT st.student_id, st.student_name, st.academic_year,
-       sb.subject_id, sb.subject_name, sb.start_year
-FROM students st
-JOIN subjects sb ON sb.subject_id = 1
-WHERE st.student_id = 1
-AND (sb.start_year IS NULL OR
-     CAST(SUBSTRING(st.academic_year, 1, 4) AS INT) >= sb.start_year);
+-- UPDATE SUBJECT
+UPDATE subjects
+SET subject_name  = 'Advanced Mathematics',
+    teacher_id    = 2,
+    start_year    = 2025
+WHERE subject_id = 1;
 
--- UPSERT: single mark (MERGE pattern)
-MERGE INTO marks AS target
-USING (SELECT 1 AS student_id, 1 AS subject_id, 1 AS teacher_id, 88 AS mark) AS source
-ON target.student_id = source.student_id AND target.subject_id = source.subject_id
-WHEN MATCHED THEN
-    UPDATE SET mark = source.mark, teacher_id = source.teacher_id, updated_at = SYSDATETIME()
-WHEN NOT MATCHED THEN
-    INSERT (student_id, subject_id, teacher_id, mark, updated_at)
-    VALUES (source.student_id, source.subject_id, source.teacher_id, source.mark, SYSDATETIME());
+-- UPDATE ASSIGN TEACHER TO SUBJECT
+UPDATE subjects
+SET teacher_id = 1
+WHERE subject_id = 1
+  AND teacher_id IS NULL;
 
--- UPSERT: admin entry
-MERGE INTO marks AS target
-USING (SELECT 2 AS student_id, 1 AS subject_id, NULL AS teacher_id, 74 AS mark) AS source
-ON target.student_id = source.student_id AND target.subject_id = source.subject_id
-WHEN MATCHED THEN
-    UPDATE SET mark = source.mark, teacher_id = source.teacher_id, updated_at = SYSDATETIME()
-WHEN NOT MATCHED THEN
-    INSERT (student_id, subject_id, teacher_id, mark, updated_at)
-    VALUES (source.student_id, source.subject_id, source.teacher_id, source.mark, SYSDATETIME());
+-- DELETE SUBJECT
+-- NOTE: marks.subject_id has ON DELETE CASCADE in create_tables.sql
+-- so all marks for this subject are automatically deleted with it
+DELETE FROM subjects
+WHERE subject_id = 1;
 
--- BULK SAVE (BY SUBJECT)
-BEGIN TRANSACTION;
+-- ============================================================
+-- SECTION 6: MARKS CRUD
+-- ============================================================
+-- Marks benefit the MOST from all 5 concepts:
+-- [TRIGGER]   auto-validates range (0-100) and logs every change
+-- [PROCEDURE] validates student/subject exist, no duplicates, range check
+-- [FUNCTION]  computes total, average, status inline
+-- [VIEW]      replaces complex JOINs for mark reads
+-- [INDEX]     makes student+subject lookups extremely fast
 
-MERGE INTO marks AS target
-USING (SELECT 1 AS student_id, 1 AS subject_id, 1 AS teacher_id, 85 AS mark) AS source
-ON target.student_id = source.student_id AND target.subject_id = source.subject_id
-WHEN MATCHED THEN UPDATE SET mark = source.mark
-WHEN NOT MATCHED THEN INSERT (student_id, subject_id, teacher_id, mark) VALUES (source.student_id, source.subject_id, source.teacher_id, source.mark);
+-- CREATE (plain INSERT — triggers fire automatically)
+-- [TRIGGER] trg_mark_insert_validation fires: blocks if mark < 0 or > 100
+-- [TRIGGER] trg_mark_audit_log fires: logs new mark to audit_log automatically
+INSERT INTO marks (student_id, subject_id, teacher_id, mark)
+VALUES (1, 1, 1, 85);
 
-MERGE INTO marks AS target
-USING (SELECT 2 AS student_id, 1 AS subject_id, 1 AS teacher_id, 91 AS mark) AS source
-ON target.student_id = source.student_id AND target.subject_id = source.subject_id
-WHEN MATCHED THEN UPDATE SET mark = source.mark
-WHEN NOT MATCHED THEN INSERT (student_id, subject_id, teacher_id, mark) VALUES (source.student_id, source.subject_id, source.teacher_id, source.mark);
+-- CREATE WITH FULL VALIDATION
+-- [PROCEDURE] sp_insert_mark: checks student exists, subject exists,
+--             no duplicate, mark in range, mark <= total_mark
+CALL sp_insert_mark(
+    1,              -- p_student_id
+    2,              -- p_subject_id
+    90,             -- p_mark
+    @result_code,   -- OUT: 0=success, negative=error
+    @result_message -- OUT: message
+);
+SELECT @result_code AS code, @result_message AS message;
 
-MERGE INTO marks AS target
-USING (SELECT 3 AS student_id, 1 AS subject_id, 1 AS teacher_id, 67 AS mark) AS source
-ON target.student_id = source.student_id AND target.subject_id = source.subject_id
-WHEN MATCHED THEN UPDATE SET mark = source.mark
-WHEN NOT MATCHED THEN INSERT (student_id, subject_id, teacher_id, mark) VALUES (source.student_id, source.subject_id, source.teacher_id, source.mark);
+-- CREATE MULTIPLE MARKS (transaction)
+START TRANSACTION;
+    INSERT INTO marks (student_id, subject_id, teacher_id, mark) VALUES (1, 1, 1, 85);
+    INSERT INTO marks (student_id, subject_id, teacher_id, mark) VALUES (1, 2, 1, 72);
+    INSERT INTO marks (student_id, subject_id, teacher_id, mark) VALUES (1, 3, 2, 91);
+COMMIT;
 
-COMMIT TRANSACTION;
+-- READ ALL MARKS (with full details)
+-- [VIEW] vw_student_subject_marks replaces 3-table JOIN
+-- [INDEX] idx_marks_student_subject makes filtering fast
+SELECT student_id, student_name, subject_name, mark, total_mark, percentage
+FROM vw_student_subject_marks
+ORDER BY student_name ASC, subject_name ASC;
 
--- BULK SAVE (BY STUDENT)
-BEGIN TRANSACTION;
+-- READ MARKS FOR ONE STUDENT
+-- [VIEW] vw_student_subject_marks — no JOIN needed
+SELECT student_name, subject_name, mark, total_mark, percentage
+FROM vw_student_subject_marks
+WHERE student_id = 1
+ORDER BY subject_name ASC;
 
-MERGE INTO marks AS target
-USING (SELECT 1 AS student_id, 1 AS subject_id, NULL AS teacher_id, 80 AS mark) AS source
-ON target.student_id = source.student_id AND target.subject_id = source.subject_id
-WHEN MATCHED THEN UPDATE SET mark = source.mark
-WHEN NOT MATCHED THEN INSERT (student_id, subject_id, teacher_id, mark) VALUES (source.student_id, source.subject_id, source.teacher_id, source.mark);
+-- READ MARKS FOR ONE SUBJECT
+-- [INDEX] idx_marks_subject_mark makes this fast
+SELECT student_name, subject_name, mark, percentage
+FROM vw_student_subject_marks
+WHERE subject_name = 'Mathematics'
+ORDER BY mark DESC;
 
-MERGE INTO marks AS target
-USING (SELECT 1 AS student_id, 2 AS subject_id, NULL AS teacher_id, 72 AS mark) AS source
-ON target.student_id = source.student_id AND target.subject_id = source.subject_id
-WHEN MATCHED THEN UPDATE SET mark = source.mark
-WHEN NOT MATCHED THEN INSERT (student_id, subject_id, teacher_id, mark) VALUES (source.student_id, source.subject_id, source.teacher_id, source.mark);
+-- READ STUDENT SUMMARY (rank, total, average, status)
+-- [VIEW] vw_student_summary uses window function ROW_NUMBER internally
+-- NOTE: `rank` is a MySQL 8 reserved word — backtick required
+SELECT student_id, student_name, total_subjects,
+       total_marks, average_mark, `rank`, status
+FROM vw_student_summary
+ORDER BY `rank` ASC;
 
-MERGE INTO marks AS target
-USING (SELECT 1 AS student_id, 3 AS subject_id, NULL AS teacher_id, 90 AS mark) AS source
-ON target.student_id = source.student_id AND target.subject_id = source.subject_id
-WHEN MATCHED THEN UPDATE SET mark = source.mark
-WHEN NOT MATCHED THEN INSERT (student_id, subject_id, teacher_id, mark) VALUES (source.student_id, source.subject_id, source.teacher_id, source.mark);
+-- READ COMPUTED VALUES INLINE
+-- [FUNCTION] fn_calculate_total, fn_calculate_average, fn_get_status
+SELECT
+    s.student_id,
+    s.student_name,
+    fn_calculate_total(s.student_id)   AS total_marks,
+    fn_calculate_average(s.student_id) AS average_mark,
+    fn_get_status(s.student_id)        AS status
+FROM students s
+WHERE s.student_id = 1;
 
-COMMIT TRANSACTION;
+-- READ PASSING STUDENTS ONLY
+-- [VIEW] vw_student_summary — filter by status column
+SELECT student_id, student_name, average_mark, `rank`
+FROM vw_student_summary
+WHERE status = 'PASS'
+ORDER BY `rank` ASC;
 
--- READ AFTER SAVE
-SELECT mark_id, student_id, subject_id, teacher_id, mark
-FROM marks
+-- READ FAILING STUDENTS ONLY
+SELECT student_id, student_name, average_mark
+FROM vw_student_summary
+WHERE status = 'FAIL'
+ORDER BY average_mark DESC;
+
+-- READ SUBJECT AVERAGE MARKS
+-- [FUNCTION] fn_get_subject_average per subject
+SELECT sub.subject_id, sub.subject_name,
+       fn_get_subject_average(sub.subject_id) AS subject_average
+FROM subjects sub
+ORDER BY subject_average DESC;
+
+-- READ AUDIT LOG (who changed what mark and when)
+-- [TRIGGER] trg_mark_audit_log / trg_mark_audit_log_update / trg_mark_audit_log_delete
+-- automatically write to audit_log on every INSERT/UPDATE/DELETE on marks
+SELECT log_id, table_name, operation, record_id,
+       old_values, new_values, changed_at
+FROM audit_log
+WHERE table_name = 'marks'
+ORDER BY changed_at DESC
+LIMIT 50;
+
+-- READ AUDIT LOG FOR ONE STUDENT'S MARKS
+SELECT al.log_id, al.operation, al.old_values, al.new_values, al.changed_at
+FROM audit_log al
+WHERE al.table_name = 'marks'
+  AND JSON_EXTRACT(al.new_values, '$.student_id') = 1
+ORDER BY al.changed_at DESC;
+
+-- UPDATE MARK (plain — triggers fire automatically)
+-- [TRIGGER] trg_mark_update_validation: rejects if new mark < 0 or > 100
+-- [TRIGGER] trg_mark_update_timestamp: sets updated_at = NOW() automatically
+-- [TRIGGER] trg_mark_audit_log_update: logs old and new values to audit_log
+UPDATE marks
+SET mark = 92
 WHERE student_id = 1 AND subject_id = 1;
 
-SELECT mark_id, student_id, subject_id, teacher_id, mark
-FROM marks WHERE student_id = 1;
+-- UPDATE MARK WITH VALIDATION
+-- [PROCEDURE] sp_update_mark: validates range and existence before updating
+CALL sp_update_mark(
+    1,              -- p_student_id
+    1,              -- p_subject_id
+    95,             -- p_new_mark
+    @result_code,
+    @result_message
+);
+SELECT @result_code AS code, @result_message AS message;
 
-SELECT mark_id, student_id, subject_id, teacher_id, mark
-FROM marks WHERE subject_id = 1;
-
--- UPDATE
-UPDATE marks SET mark = 95 WHERE mark_id = 1;
-
--- DELETE
-DELETE FROM marks WHERE mark_id = 1;
-
+-- DELETE MARK
+-- [TRIGGER] trg_mark_audit_log_delete: auto-logs the deleted mark to audit_log
 DELETE FROM marks
 WHERE student_id = 1 AND subject_id = 1;
 
--- 7. REPORTS
+-- DELETE ALL MARKS FOR A STUDENT
+DELETE FROM marks
+WHERE student_id = 1;
 
--- SUBJECT LIST
-SELECT subject_id, subject_name, total_mark, start_year
-FROM subjects
-ORDER BY subject_id ASC;
+-- DELETE ALL MARKS FOR A SUBJECT
+DELETE FROM marks
+WHERE subject_id = 1;
 
--- STUDENT LIST
-SELECT student_id, student_name, gender, grade, academic_year, semester
-FROM students
-ORDER BY student_id ASC;
+-- ============================================================
+-- SECTION 7: ADMINS CRUD
+-- ============================================================
 
--- CLASS STUDENTS
-SELECT student_id, student_name, gender, grade, academic_year, semester
-FROM students
-WHERE grade = '9A'
-ORDER BY student_id ASC;
+-- CREATE
+INSERT INTO admins (username, password_hash)
+VALUES ('admin1', 'hashed_password_here');
 
--- ALL MARKS
-SELECT student_id, subject_id, mark FROM marks;
+-- READ ALL
+SELECT admin_id, username, created_at
+FROM admins
+ORDER BY admin_id ASC;
 
--- HOMEROOM TEACHERS
-SELECT teacher_id, teacher_name, assigned_class
-FROM teachers
-WHERE role = 'Homeroom Teacher';
+-- READ BY USERNAME
+SELECT admin_id, username, password_hash
+FROM admins
+WHERE username = 'admin1';
+
+-- UPDATE PASSWORD
+UPDATE admins
+SET password_hash = 'new_hashed_password_here'
+WHERE username = 'admin1';
+
+-- DELETE (prevent deleting last admin)
+DELETE FROM admins
+WHERE admin_id = 2
+  AND username <> 'admin';
+
+-- ============================================================
+-- SECTION 8: REPORTS & DASHBOARDS USING ALL CONCEPTS
+-- ============================================================
+
+-- FULL STUDENT REPORT (Procedure + Functions)
+-- [PROCEDURE] sp_get_student_report uses fn_calculate_total, fn_calculate_average, fn_get_status
+CALL sp_get_student_report(1);
 
 -- CLASS MARK SHEET
-SELECT st.student_id, st.student_name, st.gender,
-       st.grade, st.academic_year, st.semester,
-       sb.subject_id, sb.subject_name, sb.total_mark,
-       sb.start_year, m.mark,
-       ht.teacher_name AS homeroom_teacher
-FROM students st
-LEFT JOIN marks m ON m.student_id = st.student_id
-LEFT JOIN subjects sb ON sb.subject_id = m.subject_id
-LEFT JOIN teachers ht
-ON ht.assigned_class = st.grade AND ht.role = 'Homeroom Teacher'
-ORDER BY st.student_name ASC, sb.subject_name ASC;
+-- [VIEW] vw_student_subject_marks
+-- [INDEX] idx_students_class + idx_marks_student_subject used internally
+SELECT vsm.student_id, vsm.student_name,
+       vsm.subject_name, vsm.mark, vsm.total_mark, vsm.percentage
+FROM vw_student_subject_marks vsm
+JOIN students s ON vsm.student_id = s.student_id
+WHERE s.grade = '9A'
+ORDER BY vsm.student_name ASC, vsm.subject_name ASC;
 
--- CLASS SUMMARY
-WITH class_report AS (
-    SELECT st.student_id, st.student_name, st.grade,
-           st.academic_year, st.semester,
-           SUM(m.mark) AS total,
-           COUNT(m.mark_id) AS subject_count,
-           ROUND(AVG(m.mark), 2) AS average
-    FROM students st
-    LEFT JOIN marks m ON m.student_id = st.student_id
-    GROUP BY st.student_id, st.student_name, st.grade,
-             st.academic_year, st.semester
-)
-SELECT student_id, student_name, grade,
-       academic_year, semester, total, subject_count,
-       average,
-       CASE WHEN average >= 50 THEN 'PASS' ELSE 'FAIL' END AS status,
-       DENSE_RANK() OVER(ORDER BY total DESC) AS class_rank
-FROM class_report
-ORDER BY class_rank ASC, student_name ASC;
+-- CLASS LEADERBOARD
+-- [VIEW] vw_student_summary with rank + status
+SELECT `rank`, student_name, total_marks, average_mark, status
+FROM vw_student_summary
+ORDER BY `rank` ASC;
 
--- 8. COMPUTATION SQL QUERIES
+-- DEPARTMENT PERFORMANCE DASHBOARD
+-- [VIEW] vw_department_performance replaces 4-table GROUP BY aggregation
+SELECT department_name, teacher_count, subject_count,
+       student_count, department_average, highest_mark, lowest_mark
+FROM vw_department_performance
+ORDER BY department_average DESC;
 
--- Total and Average Query (using functions, if defined)
-SELECT s.student_id, s.student_name,
-       dbo.fn_calculate_total(s.student_id) AS total_marks,
-       dbo.fn_calculate_average(s.student_id) AS average_mark
+-- TEACHER WORKLOAD SUMMARY
+-- [VIEW] vw_teacher_subject_assignment
+SELECT teacher_name, subject_department, subject_name,
+       students_graded, average_mark_given
+FROM vw_teacher_subject_assignment
+ORDER BY teacher_name ASC;
+
+-- CLASS PERFORMANCE COMPARISON
+-- [VIEW] vw_class_performance
+-- [FUNCTION] fn_get_class_average for inline use per class
+SELECT cp.class_name, cp.student_count,
+       cp.class_average, cp.highest_mark, cp.lowest_mark
+FROM vw_class_performance cp
+ORDER BY cp.class_average DESC;
+
+-- SUBJECT DIFFICULTY ANALYSIS (lowest average = hardest subject)
+-- [FUNCTION] fn_get_subject_average
+SELECT sub.subject_name,
+       fn_get_subject_average(sub.subject_id) AS average_mark
+FROM subjects sub
+ORDER BY average_mark ASC;
+
+-- FULL AUDIT TRAIL (last 100 changes)
+-- [TRIGGER] All audit entries are auto-written; no manual logging code needed
+SELECT log_id, table_name, operation, record_id,
+       old_values, new_values, changed_at
+FROM audit_log
+ORDER BY changed_at DESC
+LIMIT 100;
+
+-- ============================================================
+-- SECTION 9: RANK, TOTAL, AVERAGE & PASS/FAIL QUERIES
+-- Using All 5 Concepts
+-- ============================================================
+
+-- ─────────────────────────────────────────────────────────────
+-- A. TOTAL MARKS QUERIES
+-- ─────────────────────────────────────────────────────────────
+
+-- A1. Total marks for ONE student
+-- [FUNCTION] fn_calculate_total — replaces SUM subquery
+SELECT student_id, student_name,
+       fn_calculate_total(student_id) AS total_marks
+FROM students
+WHERE student_id = 1;
+
+-- A2. Total marks for ALL students
+-- [FUNCTION] fn_calculate_total called per row — no manual GROUP BY needed
+SELECT s.student_id, s.student_name, s.grade,
+       fn_calculate_total(s.student_id) AS total_marks
 FROM students s
-WHERE s.student_id = @student_id;
+ORDER BY total_marks DESC;
 
--- Total and Average Query (Alternative without functions)
-SELECT s.student_id, s.student_name,
-       SUM(m.mark) AS total_marks,
-       ROUND(AVG(m.mark), 2) AS average_mark
-FROM students s
-LEFT JOIN marks m ON s.student_id = m.student_id
-GROUP BY s.student_id, s.student_name;
+-- A3. Total marks via VIEW (simplest approach)
+-- [VIEW] vw_student_summary already has total_marks computed
+SELECT student_id, student_name, total_marks
+FROM vw_student_summary
+ORDER BY total_marks DESC;
 
--- Rank Query
-SELECT s.student_id, s.student_name,
-       SUM(m.mark) AS total_marks,
-       DENSE_RANK() OVER (ORDER BY SUM(m.mark) DESC) AS class_rank
+-- A4. Total marks per CLASS
+-- [FUNCTION] fn_get_class_average + SUM inline per class
+SELECT c.class_id, c.class_name,
+       SUM(m.mark) AS class_total_marks
+FROM classes c
+JOIN students s ON s.class_id = c.class_id
+JOIN marks m ON m.student_id = s.student_id
+GROUP BY c.class_id, c.class_name
+ORDER BY class_total_marks DESC;
+
+-- A5. Total marks per SUBJECT
+-- [INDEX] idx_marks_subject_mark speeds up aggregation per subject
+SELECT sub.subject_id, sub.subject_name,
+       SUM(m.mark) AS subject_total_marks,
+       COUNT(m.mark_id) AS entries
+FROM subjects sub
+LEFT JOIN marks m ON m.subject_id = sub.subject_id
+GROUP BY sub.subject_id, sub.subject_name
+ORDER BY subject_total_marks DESC;
+
+-- ─────────────────────────────────────────────────────────────
+-- B. AVERAGE MARK QUERIES
+-- ─────────────────────────────────────────────────────────────
+
+-- B1. Average mark for ONE student
+-- [FUNCTION] fn_calculate_average — replaces AVG subquery
+SELECT student_id, student_name,
+       fn_calculate_average(student_id) AS average_mark
+FROM students
+WHERE student_id = 1;
+
+-- B2. Average mark for ALL students
+-- [FUNCTION] fn_calculate_average per row
+SELECT s.student_id, s.student_name, s.grade,
+       fn_calculate_average(s.student_id) AS average_mark
 FROM students s
-LEFT JOIN marks m ON s.student_id = m.student_id
+ORDER BY average_mark DESC;
+
+-- B3. Average mark via VIEW (cleanest)
+-- [VIEW] vw_student_summary has average_mark pre-computed
+SELECT student_id, student_name, average_mark
+FROM vw_student_summary
+ORDER BY average_mark DESC;
+
+-- B4. Average mark per SUBJECT
+-- [FUNCTION] fn_get_subject_average — avoids writing AVG+JOIN every time
+SELECT sub.subject_id, sub.subject_name,
+       fn_get_subject_average(sub.subject_id) AS average_mark
+FROM subjects sub
+ORDER BY average_mark DESC;
+
+-- B5. Average mark per CLASS
+-- [FUNCTION] fn_get_class_average + [VIEW] vw_class_performance
+SELECT class_id, class_name, class_average
+FROM vw_class_performance
+ORDER BY class_average DESC;
+
+-- B6. Average mark per SUBJECT with subject details
+-- [VIEW] vw_student_subject_marks grouped by subject
+SELECT subject_name,
+       ROUND(AVG(mark), 2)  AS average_mark,
+       MAX(mark)             AS highest_mark,
+       MIN(mark)             AS lowest_mark,
+       COUNT(student_id)     AS total_students
+FROM vw_student_subject_marks
+GROUP BY subject_name
+ORDER BY average_mark DESC;
+
+-- ─────────────────────────────────────────────────────────────
+-- C. PASS / FAIL QUERIES
+-- ─────────────────────────────────────────────────────────────
+
+-- C1. Pass/Fail for ONE student (overall)
+-- [FUNCTION] fn_get_status — returns 'PASS', 'FAIL', or 'NO MARKS'
+SELECT student_id, student_name,
+       fn_calculate_average(student_id) AS average_mark,
+       fn_get_status(student_id)        AS status
+FROM students
+WHERE student_id = 1;
+
+-- C2. Pass/Fail for ALL students (overall)
+-- [FUNCTION] fn_get_status per row — eliminates CASE WHEN AVG(...) pattern
+SELECT s.student_id, s.student_name, s.grade,
+       fn_calculate_average(s.student_id) AS average_mark,
+       fn_get_status(s.student_id)        AS status
+FROM students s
+ORDER BY average_mark DESC;
+
+-- C3. Pass/Fail via VIEW (simplest — status is a column)
+-- [VIEW] vw_student_summary has status = 'PASS' / 'FAIL' computed
+SELECT student_id, student_name, average_mark, status
+FROM vw_student_summary
+ORDER BY status ASC, average_mark DESC;
+
+-- C4. ALL PASSING students
+-- [VIEW] vw_student_summary — filter status column directly
+SELECT student_id, student_name, average_mark, `rank`
+FROM vw_student_summary
+WHERE status = 'PASS'
+ORDER BY `rank` ASC;
+
+-- C5. ALL FAILING students
+-- [VIEW] vw_student_summary
+SELECT student_id, student_name, average_mark
+FROM vw_student_summary
+WHERE status = 'FAIL'
+ORDER BY average_mark DESC;
+
+-- C6. Pass/Fail at SUBJECT LEVEL (per student per subject)
+-- [VIEW] vw_student_subject_marks provides mark + percentage per subject
+SELECT student_name, subject_name, mark, percentage,
+       CASE
+           WHEN mark >= 50 THEN 'PASS'
+           ELSE 'FAIL'
+       END AS subject_status
+FROM vw_student_subject_marks
+ORDER BY student_name ASC, subject_name ASC;
+
+-- C7. Pass/Fail subject level for ONE student
+-- [VIEW] vw_student_subject_marks + CASE — no raw JOINs needed
+SELECT subject_name, mark, percentage,
+       CASE WHEN mark >= 50 THEN 'PASS' ELSE 'FAIL' END AS subject_status
+FROM vw_student_subject_marks
+WHERE student_id = 1
+ORDER BY subject_name ASC;
+
+-- C8. Count of passed/failed subjects per student
+-- [INDEX] idx_marks_student_mark speeds this up
+SELECT s.student_id, s.student_name,
+       SUM(CASE WHEN m.mark >= 50 THEN 1 ELSE 0 END) AS passed_subjects,
+       SUM(CASE WHEN m.mark <  50 THEN 1 ELSE 0 END) AS failed_subjects,
+       COUNT(m.mark_id)                               AS total_subjects
+FROM students s
+LEFT JOIN marks m ON m.student_id = s.student_id
 GROUP BY s.student_id, s.student_name
-ORDER BY class_rank ASC, student_name ASC;
+ORDER BY failed_subjects DESC;
 
--- Pass/Fail Query (using functions, if defined)
-SELECT s.student_id, s.student_name,
-       dbo.fn_calculate_average(s.student_id) AS average_mark,
-       dbo.fn_get_status(s.student_id) AS status
-FROM students s
-WHERE s.student_id = @student_id;
+-- C9. Class-level Pass/Fail count
+-- [VIEW] vw_class_performance for class context
+SELECT cp.class_name, cp.student_count, cp.class_average,
+       CASE WHEN cp.class_average >= 50 THEN 'ABOVE AVERAGE' ELSE 'BELOW AVERAGE' END AS class_status
+FROM vw_class_performance cp
+ORDER BY cp.class_average DESC;
 
--- Pass/Fail Query (Alternative without functions)
-SELECT s.student_id, s.student_name,
-       ROUND(AVG(m.mark), 2) AS average_mark,
-       CASE WHEN AVG(m.mark) >= 50 THEN 'PASS' ELSE 'FAIL' END AS status
-FROM students s
-LEFT JOIN marks m ON s.student_id = m.student_id
-GROUP BY s.student_id, s.student_name;
+-- ─────────────────────────────────────────────────────────────
+-- D. RANK QUERIES
+-- ─────────────────────────────────────────────────────────────
 
--- Pass/Fail Query (Subject-level)
-SELECT st.student_id, st.student_name,
-       sb.subject_name, m.mark,
-       CASE
-         WHEN m.mark IS NULL THEN '-'
-         WHEN m.mark >= 50 THEN 'PASS'
-         ELSE 'FAIL'
-       END AS subject_result
-FROM students st
-LEFT JOIN marks m ON m.student_id = st.student_id
-LEFT JOIN subjects sb ON sb.subject_id = m.subject_id
-ORDER BY sb.subject_name ASC;
+-- D1. Rank ALL students (simplest — rank is built into view)
+-- [VIEW] vw_student_summary uses ROW_NUMBER() OVER (ORDER BY total DESC)
+SELECT `rank`, student_id, student_name,
+       total_marks, average_mark, status
+FROM vw_student_summary
+ORDER BY `rank` ASC;
 
--- STUDENT RESULT SHEET
-SELECT st.student_id, st.student_name, st.gender,
-       st.grade, st.academic_year, st.semester,
-       sb.subject_name, sb.total_mark, m.mark,
-       CASE
-         WHEN m.mark IS NULL THEN '-'
-         WHEN m.mark >= 50 THEN 'PASS'
-         ELSE 'FAIL'
-       END AS subject_result
-FROM students st
-LEFT JOIN marks m ON m.student_id = st.student_id
-LEFT JOIN subjects sb ON sb.subject_id = m.subject_id
-ORDER BY sb.subject_name ASC;
+-- D2. Top 5 students (leaderboard)
+-- [VIEW] vw_student_summary
+SELECT `rank`, student_name, total_marks, average_mark
+FROM vw_student_summary
+ORDER BY `rank` ASC
+LIMIT 5;
+
+-- D3. Rank ONE specific student
+-- [VIEW] vw_student_summary — see where a student sits in the class
+SELECT `rank`, student_name, total_marks, average_mark, status
+FROM vw_student_summary
+WHERE student_id = 1;
+
+-- D4. Rank with DENSE_RANK (handles tied marks correctly)
+-- [FUNCTION] fn_calculate_total used for the ORDER BY value
+-- NOTE: Using CTE because MySQL prohibits stored functions in window ORDER BY
+WITH student_totals AS (
+    SELECT
+        s.student_id,
+        s.student_name,
+        s.grade,
+        fn_calculate_total(s.student_id)   AS total_marks,
+        fn_calculate_average(s.student_id) AS average_mark,
+        fn_get_status(s.student_id)        AS status
+    FROM students s
+)
+SELECT
+    *,
+    DENSE_RANK() OVER (ORDER BY total_marks DESC) AS dense_rank
+FROM student_totals
+ORDER BY dense_rank ASC, student_name ASC;
+
+-- D5. Rank WITHIN a specific CLASS
+-- [INDEX] idx_students_class speeds up the class filter
+WITH student_class_totals AS (
+    SELECT
+        s.student_id,
+        s.student_name,
+        s.class_id,
+        c.class_name,
+        fn_calculate_total(s.student_id)   AS total_marks,
+        fn_calculate_average(s.student_id) AS average_mark
+    FROM students s
+    JOIN classes c ON s.class_id = c.class_id
+)
+SELECT
+    *,
+    DENSE_RANK() OVER (
+        PARTITION BY class_id
+        ORDER BY total_marks DESC
+    ) AS class_rank
+FROM student_class_totals
+ORDER BY class_name ASC, class_rank ASC;
+
+-- D6. Rank WITHIN a specific GRADE
+-- [INDEX] idx_students_name used in ORDER BY
+WITH student_grade_totals AS (
+    SELECT
+        s.student_id,
+        s.student_name,
+        s.grade,
+        fn_calculate_total(s.student_id)   AS total_marks
+    FROM students s
+    WHERE s.grade = '9A'
+)
+SELECT
+    *,
+    DENSE_RANK() OVER (
+        ORDER BY total_marks DESC
+    ) AS grade_rank
+FROM student_grade_totals
+ORDER BY grade_rank ASC;
+
+-- D7. Full result sheet: Total + Average + Rank + Pass/Fail in one query
+WITH student_full_results AS (
+    SELECT
+        s.student_id,
+        s.student_name,
+        s.grade,
+        s.academic_year,
+        s.semester,
+        fn_calculate_total(s.student_id)   AS total_marks,
+        fn_calculate_average(s.student_id) AS average_mark,
+        fn_get_status(s.student_id)        AS status
+    FROM students s
+)
+SELECT
+    *,
+    DENSE_RANK() OVER (ORDER BY total_marks DESC) AS `rank`
+FROM student_full_results
+ORDER BY `rank` ASC, student_name ASC;
+
+-- D8. Full result sheet via VIEW + FUNCTION (cleanest version)
+-- [VIEW] vw_student_summary has rank, average, status pre-computed
+-- Add grade from students table with a simple JOIN
+SELECT
+    vss.`rank`,
+    vss.student_id,
+    vss.student_name,
+    s.grade,
+    s.academic_year,
+    s.semester,
+    vss.total_marks,
+    vss.average_mark,
+    vss.status
+FROM vw_student_summary vss
+JOIN students s ON s.student_id = vss.student_id
+ORDER BY vss.`rank` ASC;
+
+-- D9. Rank via Stored Procedure (full report per student)
+-- [PROCEDURE] sp_get_student_report returns rank-related stats internally
+CALL sp_get_student_report(1);
+
+-- ─────────────────────────────────────────────────────────────
+-- E. COMBINED: Total + Average + Pass/Fail + Rank in one sheet
+-- ─────────────────────────────────────────────────────────────
+
+-- E1. Complete academic result card per student (all in one query)
+-- [VIEW]      vw_student_summary  — rank, total, average, status
+-- [VIEW]      vw_student_subject_marks — per-subject marks and percentage
+-- [FUNCTION]  fn_calculate_total, fn_calculate_average, fn_get_status
+-- [INDEX]     idx_marks_student_subject for fast subject mark lookups
+SELECT
+    vss.`rank`                                       AS overall_rank,
+    vss.student_id,
+    vss.student_name,
+    s.grade,
+    s.academic_year,
+    s.semester,
+    vss.total_subjects,
+    vss.total_marks,
+    vss.average_mark,
+    vss.status                                       AS overall_status,
+    GROUP_CONCAT(
+        CONCAT(vsm.subject_name, ': ', vsm.mark, '/', vsm.total_mark)
+        ORDER BY vsm.subject_name ASC
+        SEPARATOR ' | '
+    )                                                AS subject_marks
+FROM vw_student_summary vss
+JOIN students s ON s.student_id = vss.student_id
+LEFT JOIN vw_student_subject_marks vsm ON vsm.student_id = vss.student_id
+GROUP BY vss.`rank`, vss.student_id, vss.student_name,
+         s.grade, s.academic_year, s.semester,
+         vss.total_subjects, vss.total_marks, vss.average_mark, vss.status
+ORDER BY vss.`rank` ASC;
+
+-- E2. Class result sheet with subject-level Pass/Fail
+-- [VIEW] vw_student_subject_marks + [VIEW] vw_student_summary
+SELECT
+    vss.`rank`,
+    vss.student_name,
+    s.grade,
+    vsm.subject_name,
+    vsm.mark,
+    vsm.percentage,
+    CASE WHEN vsm.mark >= 50 THEN 'PASS' ELSE 'FAIL' END AS subject_status,
+    vss.total_marks,
+    vss.average_mark,
+    vss.status AS overall_status
+FROM vw_student_summary vss
+JOIN students s ON s.student_id = vss.student_id
+LEFT JOIN vw_student_subject_marks vsm ON vsm.student_id = vss.student_id
+ORDER BY vss.`rank` ASC, vsm.subject_name ASC;
+
+-- ============================================================
+-- SUMMARY: HOW EACH CONCEPT REDUCES CRUD COMPLEXITY
+-- ============================================================
+/*
+  1. VIEWS (READ)
+     Before : 3-4 table JOINs repeated in every SELECT query
+     After  : SELECT * FROM vw_student_subject_marks WHERE student_id = ?
+     Views  : vw_student_subject_marks, vw_student_summary,
+               vw_class_performance, vw_teacher_subject_assignment,
+               vw_department_performance
+
+  2. STORED PROCEDURES (CREATE / UPDATE / READ)
+     Before : Raw INSERT/UPDATE with manual validation in application code
+     After  : CALL sp_add_student(...); CALL sp_insert_mark(...);
+     Procs  : sp_add_student, sp_insert_mark, sp_update_mark,
+               sp_get_student_report
+
+  3. FUNCTIONS (READ / COMPUTE)
+     Before : Subqueries or manual SUM/AVG/CASE expressions inside every SELECT
+     After  : fn_calculate_total(id), fn_calculate_average(id), fn_get_status(id)
+     Funcs  : fn_calculate_total, fn_calculate_average, fn_get_status,
+               fn_get_subject_average, fn_get_class_average
+
+  4. TRIGGERS (CREATE / UPDATE / DELETE — automatic)
+     Before : Application code must validate mark range + write audit log manually
+     After  : Triggers auto-validate (BEFORE) and auto-log (AFTER) — zero app code
+     Triggers: trg_mark_insert_validation, trg_mark_update_validation,
+                trg_mark_update_timestamp, trg_mark_audit_log,
+                trg_mark_audit_log_update, trg_mark_audit_log_delete,
+                trg_teacher_homeroom_constraint
+
+  5. INDEXES (READ — performance)
+     Before : Full table scan on every WHERE / JOIN / ORDER BY column
+     After  : Index lookup — milliseconds vs seconds on large data
+     Indexes: idx_marks_student_subject, idx_marks_student_mark,
+               idx_marks_subject_mark, idx_students_class,
+               idx_students_name, idx_subjects_name,
+               idx_teachers_name, idx_departments_name,
+               idx_audit_log_date, idx_marks_value_range
+*/
