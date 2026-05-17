@@ -18,6 +18,7 @@ async function resolveAssignedClassRecord({
 }
 
 async function list() {
+  // Use view for teacher workload data
   const [rows] = await pool.execute(
     `SELECT
         t.teacher_id,
@@ -27,10 +28,13 @@ async function list() {
         COALESCE(c.class_name, t.assigned_class) AS assigned_class,
         COALESCE(t.assigned_class_id, c.class_id) AS assigned_class_id,
         t.role,
-        t.username
+        t.username,
+        tsa.students_graded,
+        tsa.average_mark_given
      FROM teachers t
      LEFT JOIN departments d ON d.department_id = t.department_id
      LEFT JOIN classes c ON c.class_id = t.assigned_class_id
+     LEFT JOIN vw_teacher_subject_assignment tsa ON tsa.teacher_id = t.teacher_id
      ORDER BY t.teacher_id DESC`
   );
   return rows;

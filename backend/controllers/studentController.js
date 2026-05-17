@@ -102,6 +102,9 @@ async function createStudent(req, res, next) {
     const student = await Student.getById(studentId);
     return res.status(201).json(student);
   } catch (err) {
+    if (err?.code === 'VALIDATION_ERROR') {
+      return res.status(400).json({ error: err.message });
+    }
     return next(err);
   }
 }
@@ -172,10 +175,40 @@ async function deleteStudent(req, res, next) {
   }
 }
 
+// NEW: Get student summary with rank using view
+async function getStudentSummary(req, res, next) {
+  try {
+    const studentId = parsePositiveInt(req.params.id);
+    if (!studentId) return res.status(400).json({ error: 'Invalid student id' });
+
+    const summary = await Student.getSummary(studentId);
+    if (!summary) return res.status(404).json({ error: 'Student not found' });
+
+    return res.json(summary);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// NEW: Get student marks detail using view
+async function getStudentMarks(req, res, next) {
+  try {
+    const studentId = parsePositiveInt(req.params.id);
+    if (!studentId) return res.status(400).json({ error: 'Invalid student id' });
+
+    const marks = await Student.getMarksDetail(studentId);
+    return res.json(marks);
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   getAllStudents,
   getStudentById,
   createStudent,
   updateStudent,
-  deleteStudent
+  deleteStudent,
+  getStudentSummary,
+  getStudentMarks
 };

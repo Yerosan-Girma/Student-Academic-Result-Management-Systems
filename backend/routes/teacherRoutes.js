@@ -11,4 +11,7 @@ router.post('/', teacherController.createTeacher);
 router.put('/:id', teacherController.updateTeacher);
 router.delete('/:id', teacherController.deleteTeacher);
 
+// NEW: Advanced database concept endpoints
+router.get('/:id/workload', teacherController.getTeacherWorkload);
+
 module.exports = router;

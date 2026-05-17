@@ -218,9 +218,39 @@ async function deleteTeacher(req, res, next) {
   }
 }
 
+// NEW: Get teacher workload using view
+async function getTeacherWorkload(req, res, next) {
+  try {
+    const teacherId = parsePositiveInt(req.params.id);
+    if (!teacherId) return res.status(400).json({ error: 'Invalid teacher id' });
+
+    const teacher = await Teacher.getById(teacherId);
+    if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
+
+    const pool = require('../config/db');
+    const [rows] = await pool.execute(
+      `SELECT teacher_id, teacher_name, subject_department, subject_name,
+              subject_id, students_graded, average_mark_given
+       FROM vw_teacher_subject_assignment
+       WHERE teacher_id = ?
+       ORDER BY subject_name ASC`,
+      [teacherId]
+    );
+
+    return res.json({
+      teacher_id: teacherId,
+      teacher_name: teacher.teacher_name,
+      workload: rows
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   getAllTeachers,
   createTeacher,
   updateTeacher,
-  deleteTeacher
+  deleteTeacher,
+  getTeacherWorkload
 };

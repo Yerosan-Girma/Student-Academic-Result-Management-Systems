@@ -19,22 +19,18 @@ async function list({ student_id = null, subject_id = null, teacher_id = null } 
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
+  // Use view for mark listing with student and subject details
   const [rows] = await pool.execute(
     `SELECT
-        m.mark_id,
-        m.student_id,
-        st.student_name,
-        m.subject_id,
-        sb.subject_name,
-        m.teacher_id,
-        t.teacher_name,
-        m.mark
-     FROM marks m
-     JOIN students st ON st.student_id = m.student_id
-     JOIN subjects sb ON sb.subject_id = m.subject_id
-     LEFT JOIN teachers t ON t.teacher_id = m.teacher_id
+        student_id,
+        student_name,
+        subject_name,
+        mark,
+        total_mark,
+        percentage
+     FROM vw_student_subject_marks
      ${whereSql}
-     ORDER BY m.mark_id DESC`,
+     ORDER BY student_name ASC, subject_name ASC`,
     params
   );
 
@@ -42,15 +38,51 @@ async function list({ student_id = null, subject_id = null, teacher_id = null } 
 }
 
 async function upsert({ student_id, subject_id, teacher_id = null, mark }) {
-  await pool.execute(
-    `INSERT INTO marks (student_id, subject_id, teacher_id, mark)
-     VALUES (?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       mark = VALUES(mark),
-       teacher_id = VALUES(teacher_id),
-       updated_at = CURRENT_TIMESTAMP`,
-    [student_id, subject_id, teacher_id, mark]
+  // Check if mark exists
+  const [existing] = await pool.execute(
+    `SELECT mark_id FROM marks WHERE student_id = ? AND subject_id = ?`,
+    [student_id, subject_id]
   );
+
+  if (existing.length > 0) {
+    // Use stored procedure for update with validation
+    await pool.execute(
+      `CALL sp_update_mark(?, ?, ?, @result_code, @result_message)`,
+      [student_id, subject_id, mark]
+    );
+
+    const [outParams] = await pool.execute(
+      `SELECT @result_code AS result_code, @result_message AS result_message`
+    );
+
+    const { result_code, result_message } = outParams[0];
+
+    if (result_code !== 0) {
+      const error = new Error(result_message);
+      error.code = 'VALIDATION_ERROR';
+      error.result_code = result_code;
+      throw error;
+    }
+  } else {
+    // Use stored procedure for insert with validation
+    await pool.execute(
+      `CALL sp_insert_mark(?, ?, ?, @result_code, @result_message)`,
+      [student_id, subject_id, mark]
+    );
+
+    const [outParams] = await pool.execute(
+      `SELECT @result_code AS result_code, @result_message AS result_message`
+    );
+
+    const { result_code, result_message } = outParams[0];
+
+    if (result_code !== 0) {
+      const error = new Error(result_message);
+      error.code = 'VALIDATION_ERROR';
+      error.result_code = result_code;
+      throw error;
+    }
+  }
 
   const [rows] = await pool.execute(
     `SELECT mark_id, student_id, subject_id, teacher_id, mark
@@ -68,15 +100,41 @@ async function bulkUpsert({ student_id, marks, teacher_id = null }) {
     await conn.beginTransaction();
 
     for (const item of marks) {
-      await conn.execute(
-        `INSERT INTO marks (student_id, subject_id, teacher_id, mark)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           mark = VALUES(mark),
-           teacher_id = VALUES(teacher_id),
-           updated_at = CURRENT_TIMESTAMP`,
-        [student_id, item.subject_id, teacher_id, item.mark]
+      // Check if mark exists
+      const [existing] = await conn.execute(
+        `SELECT mark_id FROM marks WHERE student_id = ? AND subject_id = ?`,
+        [student_id, item.subject_id]
       );
+
+      if (existing.length > 0) {
+        // Use stored procedure for update
+        await conn.execute(
+          `CALL sp_update_mark(?, ?, ?, @result_code, @result_message)`,
+          [student_id, item.subject_id, item.mark]
+        );
+
+        const [outParams] = await conn.execute(
+          `SELECT @result_code AS result_code, @result_message AS result_message`
+        );
+
+        if (outParams[0].result_code !== 0) {
+          throw new Error(outParams[0].result_message);
+        }
+      } else {
+        // Use stored procedure for insert
+        await conn.execute(
+          `CALL sp_insert_mark(?, ?, ?, @result_code, @result_message)`,
+          [student_id, item.subject_id, item.mark]
+        );
+
+        const [outParams] = await conn.execute(
+          `SELECT @result_code AS result_code, @result_message AS result_message`
+        );
+
+        if (outParams[0].result_code !== 0) {
+          throw new Error(outParams[0].result_message);
+        }
+      }
     }
 
     await conn.commit();
@@ -102,15 +160,41 @@ async function bulkUpsertBySubject({ subject_id, teacher_id = null, marks }) {
     await conn.beginTransaction();
 
     for (const item of marks) {
-      await conn.execute(
-        `INSERT INTO marks (student_id, subject_id, teacher_id, mark)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           mark = VALUES(mark),
-           teacher_id = VALUES(teacher_id),
-           updated_at = CURRENT_TIMESTAMP`,
-        [item.student_id, subject_id, teacher_id, item.mark]
+      // Check if mark exists
+      const [existing] = await conn.execute(
+        `SELECT mark_id FROM marks WHERE student_id = ? AND subject_id = ?`,
+        [item.student_id, subject_id]
       );
+
+      if (existing.length > 0) {
+        // Use stored procedure for update
+        await conn.execute(
+          `CALL sp_update_mark(?, ?, ?, @result_code, @result_message)`,
+          [item.student_id, subject_id, item.mark]
+        );
+
+        const [outParams] = await conn.execute(
+          `SELECT @result_code AS result_code, @result_message AS result_message`
+        );
+
+        if (outParams[0].result_code !== 0) {
+          throw new Error(outParams[0].result_message);
+        }
+      } else {
+        // Use stored procedure for insert
+        await conn.execute(
+          `CALL sp_insert_mark(?, ?, ?, @result_code, @result_message)`,
+          [item.student_id, subject_id, item.mark]
+        );
+
+        const [outParams] = await conn.execute(
+          `SELECT @result_code AS result_code, @result_message AS result_message`
+        );
+
+        if (outParams[0].result_code !== 0) {
+          throw new Error(outParams[0].result_message);
+        }
+      }
     }
 
     await conn.commit();

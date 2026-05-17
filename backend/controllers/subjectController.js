@@ -177,9 +177,35 @@ async function deleteSubject(req, res, next) {
   }
 }
 
+// NEW: Get subject average using function
+async function getSubjectAverage(req, res, next) {
+  try {
+    const subjectId = parsePositiveInt(req.params.id);
+    if (!subjectId) return res.status(400).json({ error: 'Invalid subject id' });
+
+    const subject = await Subject.getById(subjectId);
+    if (!subject) return res.status(404).json({ error: 'Subject not found' });
+
+    const pool = require('../config/db');
+    const [rows] = await pool.execute(
+      `SELECT fn_get_subject_average(?) AS average_mark`,
+      [subjectId]
+    );
+
+    return res.json({
+      subject_id: subjectId,
+      subject_name: subject.subject_name,
+      average_mark: rows[0]?.average_mark ?? 0
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   getAllSubjects,
   createSubject,
   updateSubject,
-  deleteSubject
+  deleteSubject,
+  getSubjectAverage
 };

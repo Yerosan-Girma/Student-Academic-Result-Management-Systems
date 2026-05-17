@@ -1,9 +1,12 @@
 const pool = require('../config/db');
 
 async function list() {
+  // Use view for department performance data
   const [rows] = await pool.execute(
-    `SELECT department_id, department_name
-     FROM departments
+    `SELECT department_id, department_name, teacher_count, subject_count,
+            student_count, total_marks_recorded, department_average,
+            highest_mark, lowest_mark
+     FROM vw_department_performance
      ORDER BY department_name ASC`
   );
   return rows;

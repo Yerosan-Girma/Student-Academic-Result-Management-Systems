@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const SchoolClass = require('../models/Class');
+const Student = require('../models/Student');
 const { isStudentEligibleForSubject } = require('../utils/yearUtils');
 
 function parsePositiveInt(value) {
@@ -27,6 +28,183 @@ function applyDenseRank(reports) {
     report.rank = rank;
   }
   return sorted;
+}
+
+// NEW: Get student rankings using view
+async function getStudentRankings(req, res, next) {
+  try {
+    const user = req.session?.user ?? null;
+    
+    // Use vw_student_summary view for rankings
+    const [rows] = await pool.execute(
+      `SELECT student_id, student_name, total_subjects, total_marks, 
+              average_mark, \`rank\`, status
+       FROM vw_student_summary
+       ORDER BY \`rank\` ASC`
+    );
+    
+    return res.json(rows);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// NEW: Get class performance using view
+async function getClassPerformance(req, res, next) {
+  try {
+    const classId = parsePositiveInt(req.params.classId);
+    
+    if (classId) {
+      // Get specific class performance
+      const [rows] = await pool.execute(
+        `SELECT class_id, class_name, student_count, mark_count,
+                class_average, highest_mark, lowest_mark
+         FROM vw_class_performance
+         WHERE class_id = ?`,
+        [classId]
+      );
+      
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Class not found' });
+      }
+      
+      return res.json(rows[0]);
+    }
+    
+    // Get all classes performance
+    const [rows] = await pool.execute(
+      `SELECT class_id, class_name, student_count, mark_count,
+              class_average, highest_mark, lowest_mark
+       FROM vw_class_performance
+       ORDER BY class_average DESC`
+    );
+    
+    return res.json(rows);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// NEW: Get department performance using view
+async function getDepartmentPerformance(req, res, next) {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT department_id, department_name, teacher_count, subject_count,
+              student_count, total_marks_recorded, department_average,
+              highest_mark, lowest_mark
+       FROM vw_department_performance
+       ORDER BY department_average DESC`
+    );
+    
+    return res.json(rows);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// NEW: Get teacher workload using view
+async function getTeacherWorkload(req, res, next) {
+  try {
+    const teacherId = parsePositiveInt(req.params.teacherId);
+    
+    if (teacherId) {
+      // Get specific teacher workload
+      const [rows] = await pool.execute(
+        `SELECT teacher_id, teacher_name, subject_department, subject_name,
+                subject_id, students_graded, average_mark_given
+         FROM vw_teacher_subject_assignment
+         WHERE teacher_id = ?
+         ORDER BY subject_name ASC`,
+        [teacherId]
+      );
+      
+      return res.json(rows);
+    }
+    
+    // Get all teachers workload
+    const [rows] = await pool.execute(
+      `SELECT teacher_id, teacher_name, subject_department, subject_name,
+              subject_id, students_graded, average_mark_given
+       FROM vw_teacher_subject_assignment
+       ORDER BY teacher_name ASC, subject_name ASC`
+    );
+    
+    return res.json(rows);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// NEW: Get comprehensive student report using stored procedure
+async function getStudentReport(req, res, next) {
+  try {
+    const studentId = parsePositiveInt(req.params.studentId);
+    if (!studentId) {
+      return res.status(400).json({ error: 'Invalid student id' });
+    }
+    
+    // Use stored procedure for comprehensive report
+    const report = await Student.getReport(studentId);
+    
+    if (!report) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    
+    return res.json(report);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// NEW: Get subject difficulty analysis using function
+async function getSubjectDifficulty(req, res, next) {
+  try {
+    // Use fn_get_subject_average function
+    const [rows] = await pool.execute(
+      `SELECT sub.subject_id, sub.subject_name,
+              fn_get_subject_average(sub.subject_id) AS average_mark
+       FROM subjects sub
+       ORDER BY average_mark ASC`
+    );
+    
+    return res.json(rows);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// NEW: Get audit log for marks
+async function getAuditLog(req, res, next) {
+  try {
+    const limit = parsePositiveInt(req.query.limit) || 100;
+    const studentId = parsePositiveInt(req.query.student_id);
+    
+    let query = `
+      SELECT log_id, table_name, operation, record_id,
+             old_values, new_values, changed_by, changed_at
+      FROM audit_log
+      WHERE table_name = 'marks'
+    `;
+    
+    const params = [];
+    
+    if (studentId) {
+      query += ` AND (
+        JSON_EXTRACT(new_values, '$.student_id') = ? OR
+        JSON_EXTRACT(old_values, '$.student_id') = ?
+      )`;
+      params.push(studentId, studentId);
+    }
+    
+    query += ` ORDER BY changed_at DESC LIMIT ?`;
+    params.push(limit);
+    
+    const [rows] = await pool.execute(query, params);
+    
+    return res.json(rows);
+  } catch (err) {
+    return next(err);
+  }
 }
 
 async function buildReports({ classFilter = null } = {}) {
@@ -189,5 +367,12 @@ async function getReportByStudent(req, res, next) {
 
 module.exports = {
   getReports,
-  getReportByStudent
+  getReportByStudent,
+  getStudentRankings,
+  getClassPerformance,
+  getDepartmentPerformance,
+  getTeacherWorkload,
+  getStudentReport,
+  getSubjectDifficulty,
+  getAuditLog
 };

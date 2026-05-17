@@ -11,6 +11,7 @@ async function list({ teacher_id = null } = {}) {
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
+  // Use function to get subject average
   const [rows] = await pool.execute(
     `SELECT
         s.subject_id,
@@ -20,7 +21,8 @@ async function list({ teacher_id = null } = {}) {
         d.department_name,
         s.teacher_id,
         t.teacher_name,
-        s.start_year
+        s.start_year,
+        fn_get_subject_average(s.subject_id) AS average_mark
      FROM subjects s
      LEFT JOIN departments d ON d.department_id = s.department_id
      LEFT JOIN teachers t ON t.teacher_id = s.teacher_id

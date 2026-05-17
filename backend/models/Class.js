@@ -238,23 +238,21 @@ async function ensureSchema() {
 }
 
 async function list() {
+  // Use view for class performance data
   const [rows] = await pool.execute(`
     SELECT
       c.class_id,
       c.class_name,
       c.description,
-      COALESCE(st.student_count, 0) AS student_count,
+      cp.student_count,
+      cp.mark_count,
+      cp.class_average,
+      cp.highest_mark,
+      cp.lowest_mark,
       COALESCE(tc.teacher_count, 0) AS teacher_count,
       COALESCE(tc.homeroom_teacher_count, 0) AS homeroom_teacher_count
     FROM classes c
-    LEFT JOIN (
-      SELECT
-        class_id,
-        COUNT(*) AS student_count
-      FROM students
-      WHERE class_id IS NOT NULL
-      GROUP BY class_id
-    ) st ON st.class_id = c.class_id
+    LEFT JOIN vw_class_performance cp ON cp.class_id = c.class_id
     LEFT JOIN (
       SELECT
         assigned_class_id,

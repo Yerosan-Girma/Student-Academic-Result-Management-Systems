@@ -81,9 +81,41 @@ async function deleteDepartment(req, res, next) {
   }
 }
 
+// NEW: Get department performance using view
+async function getDepartmentPerformance(req, res, next) {
+  try {
+    const departmentId = parsePositiveInt(req.params.id);
+    
+    if (departmentId) {
+      const pool = require('../config/db');
+      const [rows] = await pool.execute(
+        `SELECT department_id, department_name, teacher_count, subject_count,
+                student_count, total_marks_recorded, department_average,
+                highest_mark, lowest_mark
+         FROM vw_department_performance
+         WHERE department_id = ?`,
+        [departmentId]
+      );
+      
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Department not found' });
+      }
+      
+      return res.json(rows[0]);
+    }
+    
+    // Get all departments performance
+    const departments = await Department.list();
+    return res.json(departments);
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   getAllDepartments,
   createDepartment,
   updateDepartment,
-  deleteDepartment
+  deleteDepartment,
+  getDepartmentPerformance
 };

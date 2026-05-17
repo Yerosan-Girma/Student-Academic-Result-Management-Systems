@@ -35,6 +35,7 @@ async function list({ class_id = null, grade = null, academic_year = null, semes
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
+  // Use functions to calculate total, average, and status for each student
   const [rows] = await pool.execute(
     `SELECT
         s.student_id,
@@ -43,7 +44,10 @@ async function list({ class_id = null, grade = null, academic_year = null, semes
         COALESCE(c.class_name, TRIM(s.grade)) AS grade,
         s.academic_year,
         s.semester,
-        c.class_id
+        c.class_id,
+        fn_calculate_total(s.student_id) AS total_marks,
+        fn_calculate_average(s.student_id) AS average_mark,
+        fn_get_status(s.student_id) AS status
      FROM students s
      LEFT JOIN classes c ON c.class_id = s.class_id
      ${whereSql}
@@ -62,7 +66,10 @@ async function getById(studentId) {
         COALESCE(c.class_name, TRIM(s.grade)) AS grade,
         s.academic_year,
         s.semester,
-        c.class_id
+        c.class_id,
+        fn_calculate_total(s.student_id) AS total_marks,
+        fn_calculate_average(s.student_id) AS average_mark,
+        fn_get_status(s.student_id) AS status
      FROM students s
      LEFT JOIN classes c ON c.class_id = s.class_id
      WHERE s.student_id = ?`,
@@ -98,9 +105,9 @@ async function create(student) {
     grade: student.grade
   });
 
-  const [result] = await pool.execute(
-    `INSERT INTO students (student_name, gender, grade, class_id, academic_year, semester)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+  // Use stored procedure sp_add_student for validation and insertion
+  const [rows] = await pool.execute(
+    `CALL sp_add_student(?, ?, ?, ?, ?, ?, @student_id, @result_code, @result_message)`,
     [
       student.student_name,
       student.gender,
@@ -110,7 +117,22 @@ async function create(student) {
       student.semester
     ]
   );
-  return result.insertId;
+
+  // Get the OUT parameters
+  const [outParams] = await pool.execute(
+    `SELECT @student_id AS student_id, @result_code AS result_code, @result_message AS result_message`
+  );
+
+  const { student_id, result_code, result_message } = outParams[0];
+
+  if (result_code !== 0) {
+    const error = new Error(result_message);
+    error.code = 'VALIDATION_ERROR';
+    error.result_code = result_code;
+    throw error;
+  }
+
+  return student_id;
 }
 
 async function update(studentId, student) {
@@ -143,11 +165,55 @@ async function remove(studentId) {
   return result.affectedRows;
 }
 
+// Get student summary using view (includes rank, total, average, status)
+async function getSummary(studentId = null) {
+  if (studentId) {
+    const [rows] = await pool.execute(
+      `SELECT student_id, student_name, total_subjects, total_marks, 
+              average_mark, \`rank\`, status
+       FROM vw_student_summary
+       WHERE student_id = ?`,
+      [studentId]
+    );
+    return rows[0] ?? null;
+  }
+
+  // Get all students ranked
+  const [rows] = await pool.execute(
+    `SELECT student_id, student_name, total_subjects, total_marks, 
+            average_mark, \`rank\`, status
+     FROM vw_student_summary
+     ORDER BY \`rank\` ASC`
+  );
+  return rows;
+}
+
+// Get student marks using view
+async function getMarksDetail(studentId) {
+  const [rows] = await pool.execute(
+    `SELECT student_name, subject_name, mark, total_mark, percentage
+     FROM vw_student_subject_marks
+     WHERE student_id = ?
+     ORDER BY subject_name ASC`,
+    [studentId]
+  );
+  return rows;
+}
+
+// Get comprehensive student report using stored procedure
+async function getReport(studentId) {
+  const [rows] = await pool.execute(`CALL sp_get_student_report(?)`, [studentId]);
+  return rows[0]?.[0] ?? null;
+}
+
 module.exports = {
   list,
   getById,
   getByIds,
   create,
   update,
-  remove
+  remove,
+  getSummary,
+  getMarksDetail,
+  getReport
 };

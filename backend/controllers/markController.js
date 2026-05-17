@@ -96,6 +96,9 @@ async function upsertMark(req, res, next) {
 
     return res.status(201).json(saved);
   } catch (err) {
+    if (err?.code === 'VALIDATION_ERROR') {
+      return res.status(400).json({ error: err.message });
+    }
     if (err?.code === 'ER_NO_REFERENCED_ROW_2') {
       return res.status(400).json({ error: 'Student or Subject does not exist' });
     }
@@ -223,6 +226,9 @@ async function bulkUpsertMarks(req, res, next) {
       error: 'Provide either subject_id (for class entry) or student_id (for per-student entry)'
     });
   } catch (err) {
+    if (err?.code === 'VALIDATION_ERROR') {
+      return res.status(400).json({ error: err.message });
+    }
     if (err?.code === 'ER_NO_REFERENCED_ROW_2') {
       return res.status(400).json({ error: 'Student or Subject does not exist' });
     }
