@@ -19,22 +19,37 @@ async function list({ student_id = null, subject_id = null, teacher_id = null } 
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
-  // Use view for mark listing with student and subject details
   const [rows] = await pool.execute(
     `SELECT
-        student_id,
-        student_name,
-        subject_name,
-        mark,
-        total_mark,
-        percentage
-     FROM vw_student_subject_marks
+        m.mark_id,
+        m.student_id,
+        s.student_name,
+        m.subject_id,
+        sub.subject_name,
+        m.teacher_id,
+        m.mark,
+        sub.total_mark,
+        ROUND((m.mark / sub.total_mark) * 100, 2) AS percentage
+     FROM marks m
+     JOIN students s ON s.student_id = m.student_id
+     JOIN subjects sub ON sub.subject_id = m.subject_id
      ${whereSql}
-     ORDER BY student_name ASC, subject_name ASC`,
+     ORDER BY s.student_name ASC, sub.subject_name ASC`,
     params
   );
 
   return rows;
+}
+
+async function setMarkTeacher(executor, { student_id, subject_id, teacher_id }) {
+  if (!teacher_id) return;
+
+  await executor.execute(
+    `UPDATE marks
+     SET teacher_id = ?
+     WHERE student_id = ? AND subject_id = ?`,
+    [teacher_id, student_id, subject_id]
+  );
 }
 
 async function upsert({ student_id, subject_id, teacher_id = null, mark }) {
@@ -83,6 +98,8 @@ async function upsert({ student_id, subject_id, teacher_id = null, mark }) {
       throw error;
     }
   }
+
+  await setMarkTeacher(pool, { student_id, subject_id, teacher_id });
 
   const [rows] = await pool.execute(
     `SELECT mark_id, student_id, subject_id, teacher_id, mark
@@ -135,6 +152,12 @@ async function bulkUpsert({ student_id, marks, teacher_id = null }) {
           throw new Error(outParams[0].result_message);
         }
       }
+
+      await setMarkTeacher(conn, {
+        student_id,
+        subject_id: item.subject_id,
+        teacher_id
+      });
     }
 
     await conn.commit();
@@ -195,6 +218,12 @@ async function bulkUpsertBySubject({ subject_id, teacher_id = null, marks }) {
           throw new Error(outParams[0].result_message);
         }
       }
+
+      await setMarkTeacher(conn, {
+        student_id: item.student_id,
+        subject_id,
+        teacher_id
+      });
     }
 
     await conn.commit();

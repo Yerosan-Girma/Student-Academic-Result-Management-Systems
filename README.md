@@ -15,14 +15,19 @@ Tech stack:
 
 ### 2) Create database + sample data
 
-Run these SQL files in MySQL:
-1. `backend/sql/create_tables.sql` (creates DB + tables)
-2. `backend/sql/sample_data.sql` (adds sample departments/subjects + sample teachers)
+Run the setup script from the backend folder. It creates the database, tables,
+views, functions, procedures, triggers, and sample teacher accounts:
 
-Example (MySQL CLI):
-```sql
-SOURCE backend/sql/create_tables.sql;
-SOURCE backend/sql/sample_data.sql;
+```powershell
+cd backend
+node setup_db.js --seed
+```
+
+If MySQL shows `Table ... doesn't exist in engine`, rebuild the broken local
+schema with:
+
+```powershell
+node setup_db.js --repair --seed
 ```
 
 ### 3) Backend (API) - start `server.js`

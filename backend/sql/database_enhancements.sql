@@ -24,10 +24,16 @@ CREATE VIEW vw_student_subject_marks AS
 SELECT 
     s.student_id,
     s.student_name,
+    s.grade,
+    s.academic_year,
+    sub.subject_id,
     sub.subject_name,
+    m.teacher_id,
     m.mark,
     sub.total_mark AS total_mark,
-    ROUND((m.mark / sub.total_mark) * 100, 2) AS percentage
+    ROUND((m.mark / sub.total_mark) * 100, 2) AS percentage,
+    m.created_at,
+    m.updated_at
 FROM marks m
 JOIN students s ON m.student_id = s.student_id
 JOIN subjects sub ON m.subject_id = sub.subject_id;

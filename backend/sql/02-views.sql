@@ -15,6 +15,7 @@ SELECT
     sub.subject_id,
     sub.subject_name,
     d.department_name,
+    m.teacher_id,
     m.mark,
     sub.total_mark,
     ROUND((m.mark / sub.total_mark) * 100, 2) AS percentage,
@@ -73,7 +74,7 @@ SELECT
     t.teacher_name,
     t.role,
     d.department_id,
-    d.department_name,
+    d.department_name AS subject_department,
     sub.subject_id,
     sub.subject_name,
     COUNT(DISTINCT m.student_id) AS students_graded,
@@ -84,7 +85,7 @@ SELECT
 FROM teachers t
 JOIN departments d ON t.department_id = d.department_id
 LEFT JOIN subjects sub ON t.teacher_id = sub.teacher_id
-LEFT JOIN marks m ON sub.subject_id = m.subject_id
+LEFT JOIN marks m ON t.teacher_id = m.teacher_id AND sub.subject_id = m.subject_id
 GROUP BY t.teacher_id, t.teacher_name, t.role, d.department_id, d.department_name, sub.subject_id, sub.subject_name;
 
 -- View 5: Department performance analysis
@@ -122,7 +123,10 @@ SELECT
     MAX(m.mark) AS highest_mark,
     MIN(m.mark) AS lowest_mark,
     ROUND(STDDEV(m.mark), 2) AS mark_stddev,
-    ROUND(SUM(CASE WHEN m.mark >= 50 THEN 1 ELSE 0 END) / COUNT(m.mark_id) * 100, 2) AS pass_rate
+    ROUND(
+        SUM(CASE WHEN m.mark >= 50 THEN 1 ELSE 0 END) / NULLIF(COUNT(m.mark_id), 0) * 100,
+        2
+    ) AS pass_rate
 FROM subjects sub
 LEFT JOIN departments d ON sub.department_id = d.department_id
 LEFT JOIN teachers t ON sub.teacher_id = t.teacher_id

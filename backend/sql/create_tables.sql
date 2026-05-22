@@ -294,10 +294,16 @@ CREATE VIEW vw_student_subject_marks AS
 SELECT
     s.student_id,
     s.student_name,
+    s.grade,
+    s.academic_year,
+    sub.subject_id,
     sub.subject_name,
+    m.teacher_id,
     m.mark,
     sub.total_mark AS total_mark,
-    ROUND((m.mark / sub.total_mark) * 100, 2) AS percentage
+    ROUND((m.mark / sub.total_mark) * 100, 2) AS percentage,
+    m.created_at,
+    m.updated_at
 FROM marks m
 JOIN students s ON m.student_id = s.student_id
 JOIN subjects sub ON m.subject_id = sub.subject_id;
@@ -368,6 +374,47 @@ LEFT JOIN subjects sub ON d.department_id = sub.department_id
 LEFT JOIN marks m ON sub.subject_id = m.subject_id
 LEFT JOIN students s ON m.student_id = s.student_id
 GROUP BY d.department_id, d.department_name;
+
+DROP VIEW IF EXISTS vw_subject_difficulty;
+CREATE VIEW vw_subject_difficulty AS
+SELECT
+    sub.subject_id,
+    sub.subject_name,
+    d.department_name,
+    t.teacher_name,
+    COUNT(DISTINCT m.student_id) AS students_taking,
+    COUNT(m.mark_id) AS total_marks,
+    ROUND(AVG(m.mark), 2) AS average_mark,
+    MAX(m.mark) AS highest_mark,
+    MIN(m.mark) AS lowest_mark,
+    ROUND(STDDEV(m.mark), 2) AS mark_stddev,
+    ROUND(
+        SUM(CASE WHEN m.mark >= 50 THEN 1 ELSE 0 END) / NULLIF(COUNT(m.mark_id), 0) * 100,
+        2
+    ) AS pass_rate
+FROM subjects sub
+LEFT JOIN departments d ON sub.department_id = d.department_id
+LEFT JOIN teachers t ON sub.teacher_id = t.teacher_id
+LEFT JOIN marks m ON sub.subject_id = m.subject_id
+GROUP BY sub.subject_id, sub.subject_name, d.department_name, t.teacher_name;
+
+DROP VIEW IF EXISTS vw_class_subject_performance;
+CREATE VIEW vw_class_subject_performance AS
+SELECT
+    c.class_id,
+    c.class_name,
+    sub.subject_id,
+    sub.subject_name,
+    COUNT(DISTINCT s.student_id) AS students_in_class,
+    COUNT(m.mark_id) AS marks_recorded,
+    ROUND(AVG(m.mark), 2) AS class_subject_average,
+    MAX(m.mark) AS highest_mark,
+    MIN(m.mark) AS lowest_mark
+FROM classes c
+LEFT JOIN students s ON c.class_id = s.class_id
+LEFT JOIN marks m ON s.student_id = m.student_id
+LEFT JOIN subjects sub ON m.subject_id = sub.subject_id
+GROUP BY c.class_id, c.class_name, sub.subject_id, sub.subject_name;
 
 -- ============================================================
 -- SECTION: FUNCTIONS
@@ -440,6 +487,49 @@ BEGIN
     FROM marks m JOIN students s ON m.student_id = s.student_id
     WHERE s.class_id = p_class_id;
     RETURN IFNULL(v_class_avg, 0.00);
+END //
+DELIMITER ;
+
+DROP FUNCTION IF EXISTS fn_get_department_average;
+DELIMITER //
+CREATE FUNCTION fn_get_department_average(p_department_id INT) RETURNS DECIMAL(5,2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_dept_avg DECIMAL(5,2);
+    SELECT ROUND(AVG(m.mark), 2) INTO v_dept_avg
+    FROM marks m
+    JOIN subjects sub ON m.subject_id = sub.subject_id
+    WHERE sub.department_id = p_department_id;
+    RETURN IFNULL(v_dept_avg, 0.00);
+END //
+DELIMITER ;
+
+DROP FUNCTION IF EXISTS fn_count_passed_subjects;
+DELIMITER //
+CREATE FUNCTION fn_count_passed_subjects(p_student_id INT) RETURNS INT
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_count INT;
+    SELECT COUNT(*) INTO v_count
+    FROM marks
+    WHERE student_id = p_student_id AND mark >= 50;
+    RETURN IFNULL(v_count, 0);
+END //
+DELIMITER ;
+
+DROP FUNCTION IF EXISTS fn_count_failed_subjects;
+DELIMITER //
+CREATE FUNCTION fn_count_failed_subjects(p_student_id INT) RETURNS INT
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_count INT;
+    SELECT COUNT(*) INTO v_count
+    FROM marks
+    WHERE student_id = p_student_id AND mark < 50;
+    RETURN IFNULL(v_count, 0);
 END //
 DELIMITER ;
 
@@ -591,15 +681,59 @@ BEGIN
         fn_calculate_total(s.student_id) AS total_marks,
         fn_calculate_average(s.student_id) AS average_mark,
         fn_get_status(s.student_id) AS status,
+        fn_count_passed_subjects(s.student_id) AS passed_subjects,
+        fn_count_failed_subjects(s.student_id) AS failed_subjects,
         COUNT(m.subject_id) AS subject_count,
         MAX(m.mark) AS highest_mark,
-        MIN(m.mark) AS lowest_mark,
-        (SELECT COUNT(*) FROM marks m2 WHERE m2.student_id = s.student_id AND m2.mark >= 50) AS passed_subjects,
-        (SELECT COUNT(*) FROM marks m3 WHERE m3.student_id = s.student_id AND m3.mark < 50) AS failed_subjects
+        MIN(m.mark) AS lowest_mark
     FROM students s
     LEFT JOIN classes c ON s.class_id = c.class_id
     LEFT JOIN marks m ON s.student_id = m.student_id
     WHERE s.student_id = p_student_id
     GROUP BY s.student_id, s.student_name, s.gender, c.class_name, s.academic_year, s.semester;
+END //
+DELIMITER ;
+
+-- ============================================================
+-- SECTION: TIMESTAMP TRIGGERS
+-- ============================================================
+
+DROP TRIGGER IF EXISTS trg_student_update_timestamp;
+DELIMITER //
+CREATE TRIGGER trg_student_update_timestamp
+BEFORE UPDATE ON students
+FOR EACH ROW
+BEGIN
+    SET NEW.updated_at = CURRENT_TIMESTAMP;
+END //
+DELIMITER ;
+
+DROP TRIGGER IF EXISTS trg_teacher_update_timestamp;
+DELIMITER //
+CREATE TRIGGER trg_teacher_update_timestamp
+BEFORE UPDATE ON teachers
+FOR EACH ROW
+BEGIN
+    SET NEW.updated_at = CURRENT_TIMESTAMP;
+END //
+DELIMITER ;
+
+DROP TRIGGER IF EXISTS trg_subject_update_timestamp;
+DELIMITER //
+CREATE TRIGGER trg_subject_update_timestamp
+BEFORE UPDATE ON subjects
+FOR EACH ROW
+BEGIN
+    SET NEW.updated_at = CURRENT_TIMESTAMP;
+END //
+DELIMITER ;
+
+DROP TRIGGER IF EXISTS trg_class_update_timestamp;
+DELIMITER //
+CREATE TRIGGER trg_class_update_timestamp
+BEFORE UPDATE ON classes
+FOR EACH ROW
+BEGIN
+    SET NEW.updated_at = CURRENT_TIMESTAMP;
 END //
 DELIMITER ;

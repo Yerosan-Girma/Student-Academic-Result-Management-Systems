@@ -7,6 +7,9 @@
   "type": "commonjs",
   "main": "server.js",
   "scripts": {
+    "setup": "node setup_db.js --seed",
+    "setup:repair": "node setup_db.js --repair --seed",
+    "setup:reset": "node setup_db.js --reset --seed",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },

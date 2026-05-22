@@ -1,11 +1,15 @@
+const path = require('path');
 const mysql = require('mysql2/promise');
+
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 async function testAdvancedConcepts() {
   const conn = await mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'student_academic_management_v2'
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'student_academic_management_v2'
   });
 
   try {
@@ -71,8 +75,8 @@ async function testAdvancedConcepts() {
       CALL sp_get_student_report(1)
     `);
     
-    if (procResults.length > 0) {
-      const result = procResults[0];
+    const result = procResults?.[0]?.[0] ?? null;
+    if (result) {
       console.log('✓ Procedure sp_get_student_report executed successfully:');
       console.log(`  - Student: ${result.student_name}`);
       console.log(`  - Total Marks: ${result.total_marks}`);
