@@ -13,6 +13,13 @@
   --sam-row-cell: #e5ebf3;
   --sam-pass: #06ab57;
   --sam-fail: #ca2323;
+  --sam-glow: rgba(62, 134, 196, 0.4);
+  --sam-gradient-1: #667eea;
+  --sam-gradient-2: #764ba2;
+  --sam-transition: 280ms cubic-bezier(0.25, 0.8, 0.25, 1);
+  --sam-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --sam-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --sam-shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.12);
 }
 
 * {
@@ -173,6 +180,7 @@ body {
   color: #f1f7ff;
   padding: 1.3rem 1.4rem;
   border-radius: 1rem;
+  animation: reveal-up 500ms ease-out;
 }
 
 .dashboard-kicker {
@@ -218,17 +226,27 @@ body {
 }
 
 .feature-key {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
-  background: linear-gradient(140deg, #3e86c4, #6fb5f1);
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(140deg, var(--sam-accent), var(--sam-gradient-1));
   color: #f7fbff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.75rem;
   font-family: 'Rajdhani', sans-serif;
   font-weight: 700;
+  transition: transform 300ms ease;
+}
+
+.feature-key svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.feature-tile:hover .feature-key {
+  transform: scale(1.1) rotate(5deg);
 }
 
 .feature-note {
@@ -396,6 +414,136 @@ body[data-page='login'] .card {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 0 0 var(--sam-glow); }
+  50% { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.sam-animated-btn {
+  position: relative;
+  overflow: hidden;
+  transition: var(--sam-transition);
+  transform: translateZ(0);
+  border: none;
+  font-weight: 600;
+}
+
+.sam-animated-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.sam-animated-btn:hover::before {
+  left: 100%;
+}
+
+.sam-animated-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sam-shadow-lg);
+}
+
+.sam-animated-btn:active {
+  transform: translateY(0);
+}
+
+.sam-animated-btn.btn-primary {
+  background: linear-gradient(135deg, var(--sam-gradient-1), var(--sam-gradient-2));
+  border: none;
+}
+
+.sam-animated-btn.btn-primary:hover {
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+}
+
+.sam-animated-btn.btn-outline-primary {
+  border-width: 2px;
+  background: transparent;
+}
+
+.sam-animated-btn.btn-outline-primary:hover {
+  background: linear-gradient(135deg, var(--sam-gradient-1), var(--sam-gradient-2));
+  color: white;
+  border-color: transparent;
+}
+
+.sam-fa-icon {
+  display: inline-block;
+  transition: transform var(--sam-transition);
+}
+
+.sam-animated-btn:hover .sam-fa-icon {
+  transform: scale(1.15) rotate(5deg);
+}
+
+.sam-fa-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+.page-enter {
+  animation: reveal-up 400ms ease-out;
+}
+
+.card.sam-hover-card {
+  transition: var(--sam-transition);
+  cursor: pointer;
+}
+
+.card.sam-hover-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--sam-shadow-lg);
+}
+
+.card.sam-hover-card .sam-fa-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, var(--sam-gradient-1), var(--sam-gradient-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-bg {
+  background: linear-gradient(135deg, var(--sam-gradient-1) 0%, var(--sam-gradient-2) 100%);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--sam-gradient-1), var(--sam-gradient-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.shimmer-text {
+  background: linear-gradient(90deg, var(--sam-ink) 25%, var(--sam-accent) 50%, var(--sam-ink) 75%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
 }
 
 @media (max-width: 991px) {

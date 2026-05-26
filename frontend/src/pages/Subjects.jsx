@@ -211,9 +211,9 @@ export default function Subjects() {
   }
 
   return (
-    <main className="container py-4">
-      <div className="mb-3">
-        <h1 className="h4 mb-1">Subject Management</h1>
+    <main className="container py-4 page-enter">
+      <div className="mb-4">
+        <h1 className="h4 mb-1 shimmer-text">Subject Management</h1>
         <div className="text-muted small">Manage departments and subjects (total mark = 100)</div>
       </div>
 
@@ -221,7 +221,7 @@ export default function Subjects() {
 
       <div className="row g-3">
         <div className="col-12 col-lg-4">
-          <div className="card shadow-sm">
+          <div className="card shadow-sm border-0">
             <div className="card-body">
               <div className="d-flex align-items-center justify-content-between mb-2">
                 <h2 className="h6 mb-0">Departments</h2>
@@ -237,13 +237,13 @@ export default function Subjects() {
                   value={deptName}
                   onChange={(e) => setDeptName(e.target.value)}
                 />
-                <button className="btn btn-outline-primary" type="submit">
+                <button className="btn btn-outline-primary sam-animated-btn" type="submit">
                   Add
                 </button>
               </form>
 
               <div className="table-responsive">
-                <table className="table table-sm mb-0">
+                <table className="table table-sm mb-0 table-hover">
                   <thead className="table-light">
                     <tr>
                       <th>ID</th>
@@ -255,7 +255,7 @@ export default function Subjects() {
                     {loading ? (
                       <tr>
                         <td colSpan={3} className="text-center text-muted py-3">
-                          Loading...
+                          <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
                         </td>
                       </tr>
                     ) : departments.length === 0 ? (
@@ -267,19 +267,19 @@ export default function Subjects() {
                     ) : (
                       departments.map((d) => (
                         <tr key={d.department_id}>
-                          <td>{d.department_id}</td>
+                          <td className="fw-medium">{d.department_id}</td>
                           <td>{d.department_name}</td>
                           <td>
                             <div className="d-flex gap-2">
                               <button
-                                className="btn btn-sm btn-outline-primary"
+                                className="btn btn-sm btn-outline-primary sam-animated-btn"
                                 type="button"
                                 onClick={() => openEditDepartment(d)}
                               >
                                 Edit
                               </button>
                               <button
-                                className="btn btn-sm btn-outline-danger"
+                                className="btn btn-sm btn-outline-danger sam-animated-btn"
                                 type="button"
                                 onClick={() => onDeleteDepartment(d.department_id)}
                               >
@@ -298,16 +298,19 @@ export default function Subjects() {
         </div>
 
         <div className="col-12 col-lg-8">
-          <div className="d-flex align-items-center justify-content-between mb-2">
+          <div className="d-flex flex-wrap align-items-center justify-content-between mb-2 gap-2">
             <h2 className="h6 mb-0">Subjects</h2>
-            <button className="btn btn-primary btn-sm" type="button" onClick={openCreate}>
+            <button className="btn btn-primary btn-sm sam-animated-btn d-flex align-items-center gap-2" type="button" onClick={openCreate}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+              </svg>
               Add Subject
             </button>
           </div>
 
-          <div className="card shadow-sm">
+          <div className="card shadow-sm border-0">
             <div className="table-responsive">
-              <table className="table table-striped mb-0">
+              <table className="table table-hover mb-0 align-middle">
                 <thead className="table-light">
                   <tr>
                     <th style={{ width: 80 }}>ID</th>
@@ -322,20 +325,26 @@ export default function Subjects() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="text-center text-muted py-4">
-                        Loading...
+                      <td colSpan={7} className="text-center text-muted py-5">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
                       </td>
                     </tr>
                   ) : subjects.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center text-muted py-4">
-                        No subjects found.
+                      <td colSpan={7} className="text-center text-muted py-5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" className="bi bi-book mb-2 opacity-50" viewBox="0 0 16 16">
+                          <path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746a2.555 2.555 0 0 1-.274.902l-.645.964-.079.111a2.11 2.11 0 0 1-.829.52l-.12.025A2.555 2.555 0 0 1 3.5 15h-1.828a2.555 2.555 0 0 1-1.482-.394l-.12-.025a2.11 2.11 0 0 1-.829-.52l-.079-.111-.645-.964-.015-.026A2.555 2.555 0 0 1 1 12.578V2.828z"/>
+                          <path d="M5.5 12.578v-8.14a2.555 2.555 0 0 0-.274-.902L3.5 2.578v8.14a2.555 2.555 0 0 0 .274.902l1.724 1.227z"/>
+                        </svg>
+                        <div>No subjects found.</div>
                       </td>
                     </tr>
                   ) : (
                     subjects.map((s) => (
                       <tr key={s.subject_id}>
-                        <td>{s.subject_id}</td>
+                        <td className="fw-medium">{s.subject_id}</td>
                         <td>{s.subject_name}</td>
                         <td>{s.department_name ?? ''}</td>
                         <td>{s.teacher_name ?? ''}</td>
@@ -344,14 +353,14 @@ export default function Subjects() {
                         <td>
                           <div className="d-flex gap-2">
                             <button
-                              className="btn btn-sm btn-outline-primary"
+                              className="btn btn-sm btn-outline-primary sam-animated-btn"
                               type="button"
                               onClick={() => openEdit(s)}
                             >
                               Edit
                             </button>
                             <button
-                              className="btn btn-sm btn-outline-danger"
+                              className="btn btn-sm btn-outline-danger sam-animated-btn"
                               type="button"
                               onClick={() => onDeleteSubject(s.subject_id)}
                             >

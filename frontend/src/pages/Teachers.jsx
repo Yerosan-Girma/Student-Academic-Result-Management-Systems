@@ -131,24 +131,25 @@ export default function Teachers() {
   }
 
   return (
-    <main className="container py-4">
-      <div className="d-flex align-items-center justify-content-between mb-3">
+    <main className="container py-4 page-enter">
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-2">
         <div>
-          <h1 className="h4 mb-1">Teacher Management</h1>
-          <div className="text-muted small">
-            Register teachers and assign department, class, and role
-          </div>
+          <h1 className="h4 mb-1 shimmer-text">Teacher Management</h1>
+          <div className="text-muted small">Register teachers and assign department, class, and role</div>
         </div>
-        <button className="btn btn-primary" type="button" onClick={openCreate}>
+        <button className="btn btn-primary sam-animated-btn d-flex align-items-center gap-2" type="button" onClick={openCreate}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+          </svg>
           Add Teacher
         </button>
       </div>
 
       <Alert alert={pageAlert} onClose={() => setPageAlert(null)} />
 
-      <div className="card shadow-sm">
+      <div className="card shadow-sm border-0">
         <div className="table-responsive">
-          <table className="table table-striped mb-0">
+          <table className="table table-hover mb-0 align-middle">
             <thead className="table-light">
               <tr>
                 <th style={{ width: 90 }}>ID</th>
@@ -163,20 +164,26 @@ export default function Teachers() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted py-4">
-                    Loading...
+                  <td colSpan={7} className="text-center text-muted py-5">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
                   </td>
                 </tr>
               ) : teachers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted py-4">
-                    No teachers found.
+                  <td colSpan={7} className="text-center text-muted py-5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" className="bi bi-person-gear mb-2 opacity-50" viewBox="0 0 16 16">
+                      <path d="M11 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM8 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                      <path d="M8.207 12.293a1 1 0 0 1 0 1.414l-1.414 1.414a1 1 0 0 1-1.414 0L3.5 14.207a1 1 0 0 1 0-1.414l1.414-1.414a1 1 0 0 1 1.414 0l.793.793.793-.793zM14 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0z"/>
+                    </svg>
+                    <div>No teachers found.</div>
                   </td>
                 </tr>
               ) : (
                 teachers.map((t) => (
                   <tr key={t.teacher_id}>
-                    <td>{t.teacher_id}</td>
+                    <td className="fw-medium">{t.teacher_id}</td>
                     <td>{t.teacher_name}</td>
                     <td>{t.username ?? ''}</td>
                     <td>{t.department_name ?? ''}</td>
@@ -185,14 +192,14 @@ export default function Teachers() {
                     <td>
                       <div className="d-flex gap-2">
                         <button
-                          className="btn btn-sm btn-outline-primary"
+                          className="btn btn-sm btn-outline-primary sam-animated-btn"
                           type="button"
                           onClick={() => openEdit(t)}
                         >
                           Edit
                         </button>
                         <button
-                          className="btn btn-sm btn-outline-danger"
+                          className="btn btn-sm btn-outline-danger sam-animated-btn"
                           type="button"
                           onClick={() => onDelete(t.teacher_id)}
                         >
@@ -216,12 +223,12 @@ export default function Teachers() {
           <>
             <button
               type="button"
-              className="btn btn-outline-secondary"
+              className="btn btn-outline-secondary sam-animated-btn"
               onClick={() => setModalOpen(false)}
             >
               Cancel
             </button>
-            <button type="button" className="btn btn-primary" onClick={onSave} disabled={!canSave}>
+            <button type="button" className="btn btn-primary sam-animated-btn" onClick={onSave} disabled={!canSave}>
               Save
             </button>
           </>

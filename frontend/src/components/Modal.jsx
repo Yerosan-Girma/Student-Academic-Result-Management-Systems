@@ -25,14 +25,14 @@ export default function Modal({ open, title, onClose, children, footer, size = '
 
   const dialogClass =
     size === 'lg'
-      ? 'modal-dialog modal-lg'
+      ? 'modal-dialog modal-lg modal-dialog-centered'
       : size === 'sm'
-        ? 'modal-dialog modal-sm'
-        : 'modal-dialog';
+        ? 'modal-dialog modal-sm modal-dialog-centered'
+        : 'modal-dialog modal-dialog-centered';
 
   return createPortal(
     <>
-      <div className="modal-backdrop fade show" />
+      <div className="modal-backdrop fade show" style={{ animation: 'reveal-up 200ms ease' }} />
       <div
         className="modal fade show"
         style={{ display: 'block' }}
@@ -41,9 +41,9 @@ export default function Modal({ open, title, onClose, children, footer, size = '
         onClick={onClose}
       >
         <div className={dialogClass} role="document" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">{title}</h5>
+          <div className="modal-content border-0 shadow-lg" style={{ animation: 'reveal-up 300ms ease' }}>
+            <div className="modal-header bg-light">
+              <h5 className="modal-title fw-semibold">{title}</h5>
               <button type="button" className="btn-close" aria-label="Close" onClick={onClose} />
             </div>
             <div className="modal-body">{children}</div>

@@ -262,9 +262,9 @@ export default function Marks() {
   }, [loadInitial, loadMarks, selectedSubjectId]);
 
   return (
-    <main className="container py-4">
-      <div className="mb-3">
-        <h1 className="h4 mb-1">Mark Entry</h1>
+    <main className="container py-4 page-enter">
+      <div className="mb-4">
+        <h1 className="h4 mb-1 shimmer-text">Mark Entry</h1>
         <div className="text-muted small">
           Select class, subject, and semester, then enter marks for each student.
         </div>
@@ -274,7 +274,11 @@ export default function Marks() {
       </div>
 
       {noSubjectsAssigned ? (
-        <div className="alert alert-warning" role="alert">
+        <div className="alert alert-warning d-flex align-items-center gap-2" role="alert">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M7.938 2.016A.13.13 0 0 1 8.002 2a.13.13 0 0 1 .063.016.146.146 0 0 1 .054.057l6.857 11.667a.25.25 0 0 1-.224.354H1.145a.25.25 0 0 1-.224-.354L8.09 2.073a.145.145 0 0 1 .054-.057zm1.044-.45a1.13 1.13 0 0 0-1.96 0L.165 13.233l-.165.231a1.13 1.13 0 0 0 1.96 0l6.857-11.667a1.13 1.13 0 0 0 0-1.96z"/>
+            <path d="M7.002 12a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 5.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995z"/>
+          </svg>
           No subjects are assigned to your account yet. Ask the admin to assign a subject in
           the Subject Management page.
         </div>
@@ -339,11 +343,14 @@ export default function Marks() {
           </select>
         </div>
         <div className="col-12 d-flex gap-2">
-          <button className="btn btn-primary" type="button" onClick={onSave} disabled={!canInteract}>
+          <button className="btn btn-primary sam-animated-btn d-flex align-items-center gap-2" type="button" onClick={onSave} disabled={!canInteract}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5V2a1 1 0 0 0-1-1H2z"/>
+            </svg>
             Save Marks
           </button>
           <button
-            className="btn btn-outline-secondary"
+            className="btn btn-outline-secondary sam-animated-btn"
             type="button"
             onClick={onReload}
             disabled={!canRefresh}
@@ -355,7 +362,7 @@ export default function Marks() {
 
       <Alert alert={alert} onClose={() => setAlert(null)} />
 
-      <div className="card shadow-sm">
+      <div className="card shadow-sm border-0">
         <div className="card-header bg-white d-flex flex-wrap align-items-center justify-content-between gap-2">
           <div className="fw-semibold">
             {selectedSubjectName ? `Subject: ${selectedSubjectName}` : 'Subject: -'}
@@ -370,7 +377,7 @@ export default function Marks() {
           ) : null}
         </div>
         <div className="table-responsive">
-          <table className="table table-striped mb-0">
+          <table className="table table-hover mb-0 align-middle">
             <thead className="table-light">
               <tr>
                 <th style={{ width: 110 }}>Student ID</th>
@@ -382,8 +389,10 @@ export default function Marks() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="text-center text-muted py-4">
-                    Loading...
+                  <td colSpan={4} className="text-center text-muted py-5">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
                   </td>
                 </tr>
               ) : !selectedSubjectId ? (
@@ -412,7 +421,7 @@ export default function Marks() {
                   const status = computeStatus(value);
                   return (
                     <tr key={student.student_id}>
-                      <td>{student.student_id}</td>
+                      <td className="fw-medium">{student.student_id}</td>
                       <td>{student.student_name}</td>
                       <td>
                         <input

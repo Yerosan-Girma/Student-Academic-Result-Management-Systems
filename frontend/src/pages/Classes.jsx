@@ -99,24 +99,25 @@ export default function Classes() {
   }
 
   return (
-    <main className="container py-4">
-      <div className="d-flex align-items-center justify-content-between mb-3">
+    <main className="container py-4 page-enter">
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-2">
         <div>
-          <h1 className="h4 mb-1">Class Management</h1>
-          <div className="text-muted small">
-            Manage classes as a dedicated entity without changing reports and marks behavior
-          </div>
+          <h1 className="h4 mb-1 shimmer-text">Class Management</h1>
+          <div className="text-muted small">Manage classes as a dedicated entity without changing reports and marks behavior</div>
         </div>
-        <button className="btn btn-primary" type="button" onClick={openCreate}>
+        <button className="btn btn-primary sam-animated-btn d-flex align-items-center gap-2" type="button" onClick={openCreate}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+          </svg>
           Add Class
         </button>
       </div>
 
       <Alert alert={pageAlert} onClose={() => setPageAlert(null)} />
 
-      <div className="card shadow-sm">
+      <div className="card shadow-sm border-0">
         <div className="table-responsive">
-          <table className="table table-striped mb-0">
+          <table className="table table-hover mb-0 align-middle">
             <thead className="table-light">
               <tr>
                 <th style={{ width: 90 }}>ID</th>
@@ -130,20 +131,25 @@ export default function Classes() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-muted py-4">
-                    Loading...
+                  <td colSpan={6} className="text-center text-muted py-5">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
                   </td>
                 </tr>
               ) : classes.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-muted py-4">
-                    No classes found.
+                  <td colSpan={6} className="text-center text-muted py-5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" className="bi bi-building mb-2 opacity-50" viewBox="0 0 16 16">
+                      <path d="M14.5 2h-13l-.5.5v12l.5.5h13l.5-.5v-12l-.5-.5zm-1 1v11H2V3h11.5zM4 4v2H3V4h1zm0 3v2H3V7h1zm0 3v2H3V9h1z"/>
+                    </svg>
+                    <div>No classes found.</div>
                   </td>
                 </tr>
               ) : (
                 classes.map((schoolClass) => (
                   <tr key={schoolClass.class_id}>
-                    <td>{schoolClass.class_id}</td>
+                    <td className="fw-medium">{schoolClass.class_id}</td>
                     <td className="fw-semibold">{schoolClass.class_name}</td>
                     <td>{schoolClass.description ?? ''}</td>
                     <td>{schoolClass.student_count ?? 0}</td>
@@ -151,14 +157,14 @@ export default function Classes() {
                     <td>
                       <div className="d-flex gap-2">
                         <button
-                          className="btn btn-sm btn-outline-primary"
+                          className="btn btn-sm btn-outline-primary sam-animated-btn"
                           type="button"
                           onClick={() => openEdit(schoolClass)}
                         >
                           Edit
                         </button>
                         <button
-                          className="btn btn-sm btn-outline-danger"
+                          className="btn btn-sm btn-outline-danger sam-animated-btn"
                           type="button"
                           onClick={() => onDelete(schoolClass.class_id)}
                         >
@@ -182,12 +188,12 @@ export default function Classes() {
           <>
             <button
               type="button"
-              className="btn btn-outline-secondary"
+              className="btn btn-outline-secondary sam-animated-btn"
               onClick={() => setModalOpen(false)}
             >
               Cancel
             </button>
-            <button type="button" className="btn btn-primary" onClick={onSave} disabled={!canSave}>
+            <button type="button" className="btn btn-primary sam-animated-btn" onClick={onSave} disabled={!canSave}>
               Save
             </button>
           </>
