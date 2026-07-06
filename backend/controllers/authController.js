@@ -1,184 +1,62 @@
+// Authentication Controller
+const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
-const pool = require('../config/db');
-const SchoolClass = require('../models/Class');
 
-function isNonEmptyString(value) {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function normalizeUsername(value) {
-  return String(value || '').trim();
-}
-
-const SAMPLE_TEACHERS = [
-  { teacher_name: 'Mr. Genet', username: 'genet' },
-  { teacher_name: 'Ms. Alemu', username: 'alemu' },
-  { teacher_name: 'Mr. Tola', username: 'tola' },
-  { teacher_name: 'Ms. OLyad', username: 'olyad' },
-  { teacher_name: 'Mr. Alemayehu', username: 'alemayehu' },
-  { teacher_name: 'Addisu', username: 'addisu' }
-];
-
-async function ensureDefaultAdmin() {
+// Login user
+exports.login = async (req, res) => {
   try {
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS admins (
-        admin_id INT NOT NULL AUTO_INCREMENT,
-        username VARCHAR(50) NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (admin_id),
-        UNIQUE KEY uq_admins_username (username)
-      ) ENGINE=InnoDB
-    `);
-
-    const [rows] = await pool.execute(`SELECT COUNT(*) AS cnt FROM admins`);
-    const count = rows?.[0]?.cnt ?? 0;
-    if (count > 0) return;
-
-    const username = 'admin';
-    const password = 'admin123';
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    await pool.execute(`INSERT INTO admins (username, password_hash) VALUES (?, ?)`, [
-      username,
-      passwordHash
-    ]);
-
-    console.log('Created default admin account: admin / admin123');
-  } catch (err) {
-    console.warn(
-      'Could not ensure default admin. Have you run backend/sql/create_tables.sql?',
-      err?.code ?? err?.message ?? err
-    );
-  }
-}
-
-async function ensureSampleTeacherLogins() {
-  try {
-    const passwordHash = await bcrypt.hash('teacher123', 10);
-
-    for (const teacher of SAMPLE_TEACHERS) {
-      await pool.execute(
-        `UPDATE teachers
-         SET username = ?, password_hash = COALESCE(password_hash, ?)
-         WHERE teacher_name = ? AND (username IS NULL OR username = '')`,
-        [teacher.username, passwordHash, teacher.teacher_name]
-      );
+    const { username, password } = req.body;
+    const connection = await pool.getConnection();
+    
+    const [users] = await connection.query('SELECT * FROM users WHERE username = ?', [username]);
+    connection.release();
+    
+    if (users.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
-  } catch (err) {
-    console.warn(
-      'Could not ensure sample teacher logins. Have you run backend/sql/create_tables.sql?',
-      err?.code ?? err?.message ?? err
-    );
-  }
-}
-
-async function login(req, res, next) {
-  try {
-    const { username, password } = req.body ?? {};
-    if (!isNonEmptyString(username) || !isNonEmptyString(password)) {
-      return res.status(400).json({ error: 'Username and password are required' });
+    
+    const user = users[0];
+    const validPassword = await bcrypt.compare(password, user.password);
+    
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
-
-    const normalizedUsername = normalizeUsername(username);
-
-    const [adminRows] = await pool.execute(
-      `SELECT admin_id, username, password_hash FROM admins WHERE username = ?`,
-      [normalizedUsername]
-    );
-    const admin = adminRows?.[0];
-
-    if (admin) {
-      const ok = await bcrypt.compare(password, admin.password_hash);
-      if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-
-      const user = {
-        user_id: admin.admin_id,
-        username: admin.username,
-        role: 'Admin'
-      };
-      req.session.user = user;
-      return res.json(user);
-    }
-
-    const [teacherRows] = await pool.execute(
-      `SELECT
-         t.teacher_id,
-         t.teacher_name,
-         t.role,
-         t.username,
-         t.password_hash,
-         COALESCE(c.class_name, t.assigned_class) AS assigned_class,
-         t.department_id,
-         COALESCE(t.assigned_class_id, c.class_id) AS assigned_class_id
-       FROM teachers t
-       LEFT JOIN classes c ON c.class_id = t.assigned_class_id
-       WHERE username = ?`,
-      [normalizedUsername]
-    );
-    const teacher = teacherRows?.[0];
-    if (!teacher) return res.status(401).json({ error: 'Invalid credentials' });
-
-    const ok = await bcrypt.compare(password, teacher.password_hash || '');
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-
-    const user = {
-      user_id: teacher.teacher_id,
-      teacher_id: teacher.teacher_id,
-      username: teacher.username,
-      teacher_name: teacher.teacher_name,
-      role: teacher.role,
-      assigned_class: teacher.assigned_class ?? null,
-      assigned_class_id: teacher.assigned_class_id ?? null,
-      department_id: teacher.department_id ?? null
-    };
-    req.session.user = user;
-    return res.json(user);
-  } catch (err) {
-    return next(err);
-  }
-}
-
-async function me(req, res, next) {
-  if (!req.session?.user) return res.status(401).json({ error: 'Unauthorized' });
-
-  try {
-    if (Number(req.session.user?.assigned_class_id) > 0) {
-      const schoolClass = await SchoolClass.getById(req.session.user.assigned_class_id);
-      if (schoolClass) {
-        req.session.user.assigned_class = schoolClass.class_name;
-      }
-    } else if (typeof req.session.user?.assigned_class === 'string') {
-      const schoolClass = await SchoolClass.getByName(req.session.user.assigned_class);
-      if (schoolClass) {
-        req.session.user.assigned_class_id = schoolClass.class_id;
-        req.session.user.assigned_class = schoolClass.class_name;
-      }
-    }
-
-    return res.json(req.session.user);
-  } catch (err) {
-    return next(err);
-  }
-}
-
-async function logout(req, res, next) {
-  try {
-    req.session.destroy((err) => {
-      if (err) return next(err);
-      res.clearCookie('student_academic_session');
-      return res.status(204).send();
+    
+    req.session.userId = user.id;
+    req.session.userRole = user.role;
+    
+    res.json({ 
+      message: 'Login successful',
+      user: { id: user.id, username: user.username, role: user.role }
     });
-  } catch (err) {
-    return next(err);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-}
+};
 
-module.exports = {
-  ensureDefaultAdmin,
-  ensureSampleTeacherLogins,
-  login,
-  me,
-  logout
+// Logout user
+exports.logout = (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Logout failed' });
+    }
+    res.json({ message: 'Logout successful' });
+  });
+};
+
+// Get current user
+exports.getCurrentUser = (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  res.json({ userId: req.session.userId, role: req.session.userRole });
+};
+
+// Check authentication middleware
+exports.isAuthenticated = (req, res, next) => {
+  if (req.session.userId) {
+    next();
+  } else {
+    res.status(401).json({ error: 'Not authenticated' });
+  }
 };
